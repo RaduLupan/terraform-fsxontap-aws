@@ -12,6 +12,11 @@ variable "subnet_ids" {
   type        = list(string)
 }
 
+variable "preferred_subnet_id" {
+  description = "The ID for the subnet that the file system will be accessible from (only one subnet can be provided)"
+  type        = string
+}
+
 variable "storage_capacity" {
   description = "Specifies the storage capacity (GiB) of the file system. Valid values are 1024 and 196608/524288"
   type        = number
@@ -46,9 +51,9 @@ variable "kms_key_id" {
   default     = null
 }
 
-variable "security_group_id" {
-  description = "The ID for the security group that applies to the specified network interfaces created for file system access"
-  type        = string
+variable "security_group_ids" {
+  description = "A list of IDs for the security groups that apply to the network interfaces created for file system access"
+  type        = list(string)
   default     = null
 }
 
