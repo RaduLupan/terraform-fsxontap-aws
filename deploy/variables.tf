@@ -36,7 +36,7 @@ variable "environment" {
 variable "throughput_capacity" {
   description = "Sets the throughput capacity (in MBps) for the file system. Valid values are 128, 256, 512, 1024, 2048, and 4096."
   type        = number
-  default     = 384
+  default     = 128
 }
 
 variable "name_tag" {
@@ -63,3 +63,14 @@ variable "deployment_type" {
   default     = "SINGLE_AZ_1"
 }
 
+variable "automatic_backup_retention_days" {
+  description = "Specifies the number of days to retain automatic backups. Valid values are 0 to 90."
+  type        = number
+  default     = 0
+}
+
+variable "ha_pairs" {
+  description = "Specifies the number of HA pairs to create. Valid values are 1 to 12."
+  type        = number
+  default     = 1
+}

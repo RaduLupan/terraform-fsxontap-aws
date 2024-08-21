@@ -76,4 +76,12 @@ resource "aws_fsx_ontap_file_system" "main" {
   
   throughput_capacity             = var.throughput_capacity
   preferred_subnet_id             = var.preferred_subnet_id
+
+  automatic_backup_retention_days = var.automatic_backup_retention_days
+
+  tags = {
+    Name        = var.name_tag
+    terraform   = true
+    environment = var.environment
+  }
 }
