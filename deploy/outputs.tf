@@ -18,3 +18,8 @@ output "svm-endpoints" {
   description = "The endpoints for the SVM."
   value       = aws_fsx_ontap_storage_virtual_machine.svm01.endpoints
 }
+
+output "nfs_volume1" {
+  description = "The ID for the NFS volume."
+  value       = aws_fsx_ontap_volume.nfs_volume1.id
+}
