@@ -1,0 +1,20 @@
+output "fsx-ontap-arn" {
+  description = "The Amazon Resource Name (ARN) of the file system."
+  value       = aws_fsx_ontap_file_system.main.arn
+}
+
+output "fsx-ontap-id" {
+  description = "The ID for the file system."
+  value       = aws_fsx_ontap_file_system.main.id
+}
+
+output "fsx-ontap-endpoints" {
+  description = "The endpoints for the file system."
+  value       = aws_fsx_ontap_file_system.main.endpoints
+  
+}
+
+output "svm-endpoints" {
+  description = "The endpoints for the SVM."
+  value       = aws_fsx_ontap_storage_virtual_machine.svm01.endpoints
+}

@@ -85,3 +85,19 @@ resource "aws_fsx_ontap_file_system" "main" {
     environment = var.environment
   }
 }
+
+resource "aws_fsx_ontap_storage_virtual_machine" "svm01" {
+  file_system_id = aws_fsx_ontap_file_system.main.id
+  name           = "svm01"
+}
+
+# # Create NFS Volume 1 of 250GB
+# resource "aws_fsx_ontap_volume" "nfs_volume1" {
+#   name  = "nfs_volume1"
+#   junction_path = "/nfs_volume1"
+#   size_in_megabytes = 256000
+#   storage_efficiency_enabled = true
+#   storage_virtual_machine_id = aws_fsx_ontap_file_system.main.id
+#   ontap_volume_type  = "RW"
+
+# }
