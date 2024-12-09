@@ -23,3 +23,9 @@ output "nfs_volume1" {
   description = "The ID for the NFS volume."
   value       = aws_fsx_ontap_volume.nfs_volume1.id
 }
+
+output "iSCSI_volume2" {
+  description = "The ID for the iSCSI volume."
+  value       = aws_fsx_ontap_volume.iscsi_volume2.id
+  
+}

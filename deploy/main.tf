@@ -100,3 +100,13 @@ resource "aws_fsx_ontap_volume" "nfs_volume1" {
   storage_virtual_machine_id = aws_fsx_ontap_storage_virtual_machine.svm01.id
   ontap_volume_type  = "RW"
 }
+
+# Create iSCSI Volume 2 of 300GB
+resource "aws_fsx_ontap_volume" "iscsi_volume2" {
+  name  = "iscsi_volume2"
+  junction_path = "/iscsi_volume2"
+  size_in_megabytes = 300000
+  storage_efficiency_enabled = true
+  storage_virtual_machine_id = aws_fsx_ontap_storage_virtual_machine.svm01.id
+  ontap_volume_type  = "RW"
+}
