@@ -74,3 +74,9 @@ variable "ha_pairs" {
   type        = number
   default     = 1
 }
+
+variable "route_table_ids" {
+  description = "A list of IDs for the route tables that the file system will be accessible from"
+  type        = list(string)
+  default     = null
+}
