@@ -21,19 +21,6 @@
         "Resource": "*"
       },
       {
-        "Sid": "EC2MessagesAccess",
-        "Action": [
-          "ec2messages:AcknowledgeMessage",
-          "ec2messages:DeleteMessage",
-          "ec2messages:FailMessage",
-          "ec2messages:GetEndpoint",
-          "ec2messages:GetMessages",
-          "ec2messages:SendReply"
-        ],
-        "Effect": "Allow",
-        "Resource": "*"
-      },
-      {
         "Sid": "CWLogsAccess",
         "Action": [
           "logs:CreateLogGroup",
@@ -41,17 +28,6 @@
           "logs:DescribeLogGroups",
           "logs:DescribeLogStreams",
           "logs:PutLogEvents"
-        ],
-        "Effect": "Allow",
-        "Resource": "*"
-      },
-      {
-        "Sid": "SSMMessagesAccess",
-        "Action": [
-          "ssmmessages:CreateControlChannel",
-          "ssmmessages:CreateDataChannel",
-          "ssmmessages:OpenControlChannel",
-          "ssmmessages:OpenDataChannel"
         ],
         "Effect": "Allow",
         "Resource": "*"
