@@ -79,6 +79,8 @@ resource "aws_fsx_ontap_file_system" "main" {
 
   automatic_backup_retention_days = var.automatic_backup_retention_days
 
+  route_table_ids                 = var.route_table_ids
+
   tags = {
     Name        = var.name_tag
     terraform   = true
