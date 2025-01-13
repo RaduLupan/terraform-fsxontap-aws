@@ -115,6 +115,12 @@ resource "aws_iam_role_policy" "main" {
   policy = data.template_file.ec2_role_policy.rendered
 }
 
+# Attach AWS SSM managed policy
+resource "aws_iam_role_policy_attachment" "ssm" {
+  role       = aws_iam_role.main.id
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 # IAM instance profile.
 resource "aws_iam_instance_profile" "main" {
   name = "${var.ops_name}-profile"
