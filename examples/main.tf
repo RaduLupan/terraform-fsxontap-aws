@@ -127,6 +127,16 @@ resource "aws_iam_instance_profile" "main" {
   role = aws_iam_role.main.name
 }
 
+# Use this data set to replace embedded bash scripts such as user_data with scripts that sit on different source.
+data "template_file" "user_data" {
+  template = file("${path.module}/ubuntu-user-data.sh")
+
+  vars = {
+    region            = var.region
+    computer_name     = var.ubuntu_name
+  }
+}
+
 # EC2 instance for operations.
 resource "aws_instance" "ubuntu" {
   ami           = local.ubuntu_ami_id
@@ -143,7 +153,7 @@ resource "aws_instance" "ubuntu" {
     encrypted   = "true"
   }
 
-  #user_data = data.template_file.user_data.rendered
+  user_data = data.template_file.user_data.rendered
 
   iam_instance_profile = aws_iam_instance_profile.main.name
 
