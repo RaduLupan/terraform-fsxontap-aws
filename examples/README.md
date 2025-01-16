@@ -1,0 +1,2 @@
+# terraform-fsxontap-aws - examples
+This repository contains Terraform configurations that deploy a few client servers that connect to the Amazon FSx for NetApp ONTAP file system both over iSCSI and NFS.
