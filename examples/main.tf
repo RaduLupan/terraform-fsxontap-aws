@@ -4,9 +4,9 @@ provider "aws" {
 
 # Calculated local values.
 locals {
-  vpc_id = data.aws_subnet.selected.vpc_id
+  vpc_id = data.aws_subnet.ubuntu.vpc_id
 
-  ubuntu_ami_id            = var.ubuntu_ami_id == null ? data.aws_ami.amazon_linux[0].id : var.ubuntu_ami_id
+  ubuntu_ami_id            = var.ubuntu_ami_id == null ? data.aws_ami.ubuntu[0].id : var.ubuntu_ami_id
   count_ubuntu_ami = var.ubuntu_ami_id == null ? 1 : 0
 
   any_port     = 0
@@ -135,7 +135,7 @@ resource "aws_instance" "ubuntu" {
   key_name               = var.key_name
   monitoring             = true
   subnet_id              = var.ubuntu_subnet_id
-  vpc_security_group_ids = [aws_security_group.main.id]
+  vpc_security_group_ids = [aws_security_group.ubuntu.id]
 
   root_block_device {
     volume_type = "gp3"
