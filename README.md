@@ -35,3 +35,22 @@ $ cd configure
 $ terraform init
 $ terraform apply
 ```
+5. (Manual) Configure the FSx ONTAP for iSCSI access:
+    - Set passwords for ```fsxadmin``` and ```vsadmin``` accounts.
+    - Connect to the ```OPS01``` instance deployed in step 4 using SSM Session Manager.
+    - Connect to the FSx management endpoint: 
+    ```$ ssh fsxadmin@management_endpoint_ip```
+    - Create an iSCSI LUN on one of the two FSx volumes:
+    ```$ lun create -vserver svm_name -path /vol/vol_name/lun_name -size size -ostype ostype -space-allocation enabled```
+    The ```size``` value needs to be in bytes, for example, to curve a 275,000 MB on the 300,000 MB volume the size in bytes will be: 288,358,400,000 as below:
+    ```$ lun create -vserver svm01 -path /vol/iscsi_volume2/lun_1 -size 288358400000 -ostype linux -space-allocation enabled```
+    - Check the newly created LUN:
+    ```$ lun show```
+    References:
+    [Creating an iSCSI LUN](https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/create-iscsi-lun.html)
+
+6. Deploy a couple of EC2 instances to use as clients connected to the FSx ONTAP file system:
+```
+$ cd examples
+$ terraform init
+$ terraform apply
