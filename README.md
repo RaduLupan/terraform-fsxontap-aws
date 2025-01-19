@@ -46,6 +46,7 @@ $ terraform apply
     ```$ lun create -vserver svm01 -path /vol/iscsi_volume2/lun_1 -size 288358400000 -ostype linux -space-allocation enabled```
     - Check the newly created LUN:
     ```$ lun show```
+    
     References:
     [Creating an iSCSI LUN](https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/create-iscsi-lun.html)
 
