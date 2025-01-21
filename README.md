@@ -60,25 +60,25 @@ $ terraform apply
 As part of the user-data script that runs at startup on the client instances, the iSCSI packages are installed and multipath configured and set to run automatically.
 
 7. (Manual) Configure iSCSI on the FSx ONTAP file system:
-    7.1 On the client instance get the initiator name:
+    1. On the client instance get the initiator name:
     ```$ sudo cat /etc/iscsi/initiatorname.iscsi```
-    7.2 Connect to the FSx ONTAP management endpoint from the OPS or client instance:
+    2. Connect to the FSx ONTAP management endpoint from the OPS or client instance:
     ```$ ssh fsxadmin@management_endpoint_ip```
-    7.3 Create an initiator group:
+    3. Create an initiator group:
     ```$ lun igroup create -vserver svm_name -igroup igroup_name -initiator host_initiator_name -protocol iscsi -ostype linux ```
     example:
     ```$ lun igroup create -vserver svm01 -igroup igroup_1 -initiator iqn.2004-10.com.ubuntu:01:bbebbd13e7fc -protocol iscsi -ostype linux```
-    7.4 Confirm that the initiator group exists:
+    4. Confirm that the initiator group exists:
     ```$ lun igroup show```
-    7.5 Create a mapping from the LUN you created to the igroup you created:
+    5. Create a mapping from the LUN you created to the igroup you created:
     ```$ lun mapping create -vserver svm_name -path /vol/vol_name/lun_name -igroup igroup_name -lun-id lun_id```
     example:
     ```$ lun mapping create -vserver svm01 -path /vol/iscsi_volume2/lun_1 -igroup igroup_1 -lun-id 1 ```
-    7.6 Use the lun show -path command to confirm the LUN is created, online, and mapped:
+    6. Use the lun show -path command to confirm the LUN is created, online, and mapped:
     ```$ lun show -path /vol/vol_name/lun_name -fields state,mapped,serial-hex```
     example:
     ```$ lun show -path /vol/iscsi_volume2/lun_1 -fields state,mapped,serial-hex```
-    7.7 Use the network interface show -vserver command to retrieve the addresses of the iscsi_1 and iscsi_2 interfaces for the SVM in which you've created your iSCSI LUN:
+    7. Use the network interface show -vserver command to retrieve the addresses of the iscsi_1 and iscsi_2 interfaces for the SVM in which you've created your iSCSI LUN:
     ```$ network interface show -vserver svm_name```
     example:
     ```$ network interface show -vserver svm01```
