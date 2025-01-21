@@ -104,3 +104,28 @@ As part of the user-data script that runs at startup on the client instances, th
     4. Use the following command to verify that dm-multipath has identified and merged the iSCSI sessions by showing a single LUN with multiple policies. There should be an equal number of devices that are listed as active and those listed as enabled.
     ```$ sudo multipath -ll```
     Your block device is now connected to your Ubuntu client. It is located under the path ```/dev/dm-xyz```. You should not use this path for administrative purposes; instead, use the symbolic link that is under the path ```/dev/mapper/wwid```, where wwid is a unique identifier for your LUN that is consistent across devices.
+
+9. (Manual) Assign the block device a friendly name.
+    1. Replace serial_hex with the value saved in step ```???``` (6c5742304f3f58695552727a) and replace ```device_name``` with a friendly name you want to use for this device, ie ```iscsi_lun1```
+    ```
+    /etc/multipath.conf
+    multipaths {
+        multipath {
+            wwid 3600a0980serial_hex
+            alias device_name
+        }
+    }
+    ```
+    example:
+    ```
+    multipaths {
+        multipath {
+            wwid 3600a09806c5742304f3f58695552727a
+            alias iscsi_lun1
+        }
+    }
+    ```
+    2. Restart the multipathd service for the changes to ```/etc/multipathd.conf``` take effect.
+    ```$ systemctl restart multipathd.service```
+
+10. (Manual) Partition the LUN.
