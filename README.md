@@ -9,48 +9,48 @@ This repository contains Terraform configurations that deploy an [Amazon FSx for
 
 1. Configure your [AWS access 
 keys](http://docs.aws.amazon.com/general/latest/gr/aws-sec-cred-types.html#access-keys-and-secret-access-keys) as 
-environment variables:
+environment variables.
 
 ```
 $ export AWS_ACCESS_KEY_ID=(your access key id)
 $ export AWS_SECRET_ACCESS_KEY=(your secret access key)
 ```
-2. Clone this repository:
+2. Clone this repository.
 
 ```
 $ git clone https://github.com/RaduLupan/terraform-fsxontap-aws.git
 $ cd terraform-fsxontap-aws
 ```
-3. Deploy an Amazon FSx ONTAP file system:
+3. Deploy an Amazon FSx ONTAP file system.
 
 ```
 $ cd deploy
 $ terraform init
 $ terraform apply
 ```
-4. Deploy a management EC2 instance to use for configuring the FSx file system:
+4. Deploy a management EC2 instance to use for configuring the FSx file system.
 
 ```
 $ cd configure
 $ terraform init
 $ terraform apply
 ```
-5. (Manual) Configure the FSx ONTAP for iSCSI access:
+5. (Manual) Configure the FSx ONTAP for iSCSI access.
     - Set passwords for ```fsxadmin``` and ```vsadmin``` accounts.
     - Connect to the ```OPS01``` instance deployed in step 4 using SSM Session Manager.
-    - Connect to the FSx management endpoint: 
+    - Connect to the FSx management endpoint.
     ```$ ssh fsxadmin@management_endpoint_ip```
-    - Create an iSCSI LUN on one of the two FSx volumes:
+    - Create an iSCSI LUN on one of the two FSx volumes.
     ```$ lun create -vserver svm_name -path /vol/vol_name/lun_name -size size -ostype ostype -space-allocation enabled```
     The ```size``` value needs to be in bytes, for example, to curve a 275,000 MB on the 300,000 MB volume the size in bytes will be: 288,358,400,000 as below:
     ```$ lun create -vserver svm01 -path /vol/iscsi_volume2/lun_1 -size 288358400000 -ostype linux -space-allocation enabled```
-    - Check the newly created LUN:
+    - Check the newly created LUN.
     ```$ lun show```
     
     References:
     [Creating an iSCSI LUN](https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/create-iscsi-lun.html)
 
-6. Deploy a couple of EC2 instances to use as clients connected to the FSx ONTAP file system:
+6. Deploy a couple of EC2 instances to use as clients connected to the FSx ONTAP file system.
 ```
 $ cd examples
 $ terraform init
@@ -59,28 +59,48 @@ $ terraform apply
 
 As part of the user-data script that runs at startup on the client instances, the iSCSI packages are installed and multipath configured and set to run automatically.
 
-7. (Manual) Configure iSCSI on the FSx ONTAP file system:
-    1. On the client instance get the initiator name:
+7. (Manual) Configure iSCSI on the FSx ONTAP file system.
+    1. On the client instance get the initiator name.
     ```$ sudo cat /etc/iscsi/initiatorname.iscsi```
-    2. Connect to the FSx ONTAP management endpoint from the OPS or client instance:
+    2. Connect to the FSx ONTAP management endpoint from the OPS or client instance.
     ```$ ssh fsxadmin@management_endpoint_ip```
-    3. Create an initiator group:
+    3. Create an initiator group.
     ```$ lun igroup create -vserver svm_name -igroup igroup_name -initiator host_initiator_name -protocol iscsi -ostype linux ```
     example:
     ```$ lun igroup create -vserver svm01 -igroup igroup_1 -initiator iqn.2004-10.com.ubuntu:01:bbebbd13e7fc -protocol iscsi -ostype linux```
-    4. Confirm that the initiator group exists:
+    4. Confirm that the initiator group exists.
     ```$ lun igroup show```
-    5. Create a mapping from the LUN you created to the igroup you created:
+    5. Create a mapping from the LUN you created to the igroup you created.
     ```$ lun mapping create -vserver svm_name -path /vol/vol_name/lun_name -igroup igroup_name -lun-id lun_id```
     example:
     ```$ lun mapping create -vserver svm01 -path /vol/iscsi_volume2/lun_1 -igroup igroup_1 -lun-id 1 ```
-    6. Use the lun show -path command to confirm the LUN is created, online, and mapped:
+    6. Use the lun show -path command to confirm the LUN is created, online, and mapped.
     ```$ lun show -path /vol/vol_name/lun_name -fields state,mapped,serial-hex```
     example:
     ```$ lun show -path /vol/iscsi_volume2/lun_1 -fields state,mapped,serial-hex```
-    7. Use the network interface show -vserver command to retrieve the addresses of the iscsi_1 and iscsi_2 interfaces for the SVM in which you've created your iSCSI LUN:
+    7. Use the network interface show -vserver command to retrieve the addresses of the iscsi_1 and iscsi_2 interfaces for the SVM in which you've created your iSCSI LUN.
     ```$ network interface show -vserver svm_name```
     example:
     ```$ network interface show -vserver svm01```
-8. 
-test
+    Record the iscsi_1 and iscsi_2 values IP in the output of the command above as you need them next.
+
+8. (Manual) Mount an iSCSI LUN on your Ubuntu client
+    1. On your Ubuntu client, use the following command to discover the target iSCSI nodes using iscsi_1's IP address iscsi_1_IP from step 7.7.
+    ```$ sudo iscsiadm --mode discovery --op update --type sendtargets --portal iscsi_1_IP```
+    example:
+    ```
+    $ sudo iscsiadm --mode discovery --op update --type sendtargets --portal 10.0.129.214
+    10.0.129.214:3260,1029 iqn.1992-08.com.netapp:sn.cfd83656d20811ef9ec94162e52a7033:vs.3
+    10.0.145.182:3260,1028 iqn.1992-08.com.netapp:sn.cfd83656d20811ef9ec94162e52a7033:vs.3
+    ```
+    2. (Optional) The following command establishes 8 sessions per initiator per ONTAP node in each availability zone, enabling the client to drive up to 40 Gb/s (5,000 MB/s) of aggregate throughput to the iSCSI LUN.
+    ```$ sudo iscsiadm --mode node -T target_initiator --op update -n node.session.nr_sessions -v 8```
+    example:
+    ```$ sudo iscsiadm --mode node -T iqn.1992-08.com.netapp:sn.cfd83656d20811ef9ec94162e52a7033:vs.3 --op update -n node.session.nr_sessions -v 8```
+    3. Log into the target initiators and confirm that your iSCSI LUNs are presented as available disks.
+    ```$ sudo iscsiadm --mode node -T target_initiator --login```
+    example:
+    ```$ sudo iscsiadm --mode node -T iqn.1992-08.com.netapp:sn.cfd83656d20811ef9ec94162e52a7033:vs.3 --login```
+    4. Use the following command to verify that dm-multipath has identified and merged the iSCSI sessions by showing a single LUN with multiple policies. There should be an equal number of devices that are listed as active and those listed as enabled.
+    ```$ sudo multipath -ll```
+    Your block device is now connected to your Ubuntu client. It is located under the path ```/dev/dm-xyz```. You should not use this path for administrative purposes; instead, use the symbolic link that is under the path ```/dev/mapper/wwid```, where wwid is a unique identifier for your LUN that is consistent across devices.
