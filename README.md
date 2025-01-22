@@ -78,6 +78,7 @@ As part of the user-data script that runs at startup on the client instances, th
     ```$ lun show -path /vol/vol_name/lun_name -fields state,mapped,serial-hex```
     example:
     ```$ lun show -path /vol/iscsi_volume2/lun_1 -fields state,mapped,serial-hex```
+    Record the value of the ```serial-hex``` in the output of the command above. In my example that is ```6c5742304f3f58695552727a```.
     7. Use the network interface show -vserver command to retrieve the addresses of the iscsi_1 and iscsi_2 interfaces for the SVM in which you've created your iSCSI LUN.
     ```$ network interface show -vserver svm_name```
     example:
@@ -106,7 +107,7 @@ As part of the user-data script that runs at startup on the client instances, th
     Your block device is now connected to your Ubuntu client. It is located under the path ```/dev/dm-xyz```. You should not use this path for administrative purposes; instead, use the symbolic link that is under the path ```/dev/mapper/wwid```, where wwid is a unique identifier for your LUN that is consistent across devices.
 
 9. (Manual) Assign the block device a friendly name.
-    1. Replace serial_hex with the value saved in step ```???``` (6c5742304f3f58695552727a) and replace ```device_name``` with a friendly name you want to use for this device, ie ```iscsi_lun1```
+    1. Replace serial_hex with the value saved in step 7.6 (```6c5742304f3f58695552727a```) and replace ```device_name``` with a friendly name you want to use for this device, ie ```iscsi_lun1```
     ```
     /etc/multipath.conf
     multipaths {
@@ -126,6 +127,40 @@ As part of the user-data script that runs at startup on the client instances, th
     }
     ```
     2. Restart the multipathd service for the changes to ```/etc/multipathd.conf``` take effect.
-    ```$ systemctl restart multipathd.service```
+    ```$ sudo systemctl restart multipathd.service```
 
 10. (Manual) Partition the LUN.
+    1. Use the following command to verify that the path to your ```device_name``` is present.
+    ```$ ls /dev/mapper/device_name```
+    example:
+    ```$ ls /dev/mapper/iscsi_lun1```
+    2. Partition the disk using fdisk.
+    example: 
+    ```$ sudo fdisk /dev/mapper/iscsi_lun1```
+    Partition ```/dev/mapper/partition_name``` should be available. Partition_name has the format ```<device_name><partition_number>```.
+    example:
+    ```$ /dev/mapper/iscsi_lun11```
+    3.  Create your file system using ```/dev/mapper/partition_name``` as the path.
+    example:
+    ```$ sudo mkfs.ext4 /dev/mapper/iscsi_lun1-part1```
+
+11. (Manual) Mount the LUN on the Linux client.
+    1. Create a directory directory_path as the mount point for your file system.
+    ```$ sudo mkdir /directory_path/mount_point```
+    example: 
+    ```$ sudo mkdir /mnt/fsx_1```
+    2. Mount the file system using the following command.
+    ```$ sudo mount -t ext4 /dev/mapper/partition_name /directory_path/mount_point```
+    example:
+    ```$ sudo mount -t ext4 /dev/mapper/iscsi_lun1-part1 /mnt/fsx_1```
+    3. (Optional) If you want to give a specific user ownership of the mount directory, replace username with the owner's username.
+    ```$ sudo chown username:username /directory_path/mount_point```
+    example:
+    ```$ sudo chown ssm-user:ssm-user /mnt/fsx_1```
+    4. 9.4 (Optional) Verify that you can read from and write data to the file system.
+    ```
+    $ echo "Hello world!" > /directory_path/mount_point/HelloWorld.txt
+    $ cat directory_path/HelloWorld.txt
+    ```
+    example:
+    ```$ echo "Hello world!" > /mnt/fsx_1/HelloWorld.txt```
