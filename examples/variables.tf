@@ -13,8 +13,8 @@ variable "key_name" {
 }
 
 variable "ubuntu_subnet_id" {
-  description = "The subnet ID to use for the Ubuntu client"
-  type        = string
+  description = "The subnet IDs to use for the Ubuntu client. Should be at least two for multi-AZ deployment"
+  type        = list(string)
 }
 
 
@@ -49,5 +49,5 @@ variable "ssh_allowed_cidr" {
 variable "ubuntu_name" {
   description = "The Name tag to use for the Ubuntu client"
   type        = string
-  default     = "Ubuntu-01"
+  default     = "Ubuntu-Client"
 }
