@@ -1,27 +1,32 @@
 #!/bin/bash
 
+# Update package lists
 sudo apt update -y
 
-# Install the open-iscsi package
+# Install AWS CLI v2
+echo "Installing AWS CLI v2..."
+sudo apt install unzip -y
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+rm -rf awscliv2.zip aws
+
+# Install open-iscsi package
 sudo apt install open-iscsi -y
 
-# To facilitate a faster response when automatically failing over between file servers when using multipath, 
-# set the replacement timeout value in the /etc/iscsi/iscsid.conf file to a value of 5 instead of using the default value of 120.
+# Set replacement timeout for faster failover in /etc/iscsi/iscsid.conf
 sudo sed -i 's/node.session.timeo.replacement_timeout = .*/node.session.timeo.replacement_timeout = 5/' /etc/iscsi/iscsid.conf
+grep -q "node.session.timeo.replacement_timeout" /etc/iscsi/iscsid.conf || echo "node.session.timeo.replacement_timeout = 5" | sudo tee -a /etc/iscsi/iscsid.conf
 sudo cat /etc/iscsi/iscsid.conf | grep node.session.timeo.replacement_timeout
 
-# Start the iSCSI service
-sudo service iscsid start
+# Enable and start iSCSI service
+sudo systemctl enable --now iscsid
 
-# Install multi-path packages
+# Install multipath tools
 sudo apt install multipath-tools multipath-tools-boot -y
 
-# Create new config file
-sudo touch /etc/multipath.conf
-
-# Add the following lines to the /etc/multipath.conf file. 
-# Refer to the multipath.conf man page (man multipath.conf) for a complete list of available options and their descriptions.
-sudo cat <<EOF | sudo tee /etc/multipath.conf
+# Create and configure multipath.conf
+sudo tee /etc/multipath.conf > /dev/null <<EOF
 defaults {
     user_friendly_names yes
     find_multipaths yes
@@ -29,6 +34,27 @@ defaults {
 }
 EOF
 
-# Start and enable the multipath serviceStart and enable the multipath service
-sudo systemctl start multipathd
-sudo systemctl enable multipathd
+# Start and enable multipath service
+sudo systemctl enable --now multipathd
+sudo systemctl restart multipathd
+
+# Use IMDSv2 to fetch instance metadata
+TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+INSTANCE_ID=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" "http://169.254.169.254/latest/meta-data/instance-id")
+
+# Get the Name tag from AWS
+INSTANCE_NAME=$(aws ec2 describe-tags --filters "Name=resource-id,Values=$INSTANCE_ID" "Name=key,Values=Name" --query "Tags[0].Value" --output text)
+
+# If the instance has no Name tag, set a default value
+if [ -z "$INSTANCE_NAME" ]; then
+    INSTANCE_NAME="Ubuntu-Client"
+fi
+
+# Update iSCSI initiator name
+echo "Setting iSCSI Initiator Name to iqn.2004-10.com.ubuntu:$INSTANCE_NAME"
+sudo sed -i "s|^InitiatorName=.*|InitiatorName=iqn.2004-10.com.ubuntu:$INSTANCE_NAME|" /etc/iscsi/initiatorname.iscsi
+
+# Restart iSCSI service to apply changes
+sudo systemctl restart iscsid
+
+echo "Custom iSCSI initiator name set successfully: iqn.2004-10.com.ubuntu:$INSTANCE_NAME"
