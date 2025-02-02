@@ -21,6 +21,14 @@
         "Resource": "*"
       },
       {
+        "Sid": "EC2Access",
+        "Action": [
+          "ec2:Describe*"
+        ],
+        "Effect": "Allow",
+        "Resource": "*"
+      },
+      {
         "Sid": "CWLogsAccess",
         "Action": [
           "logs:CreateLogGroup",
