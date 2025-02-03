@@ -9,6 +9,8 @@ SVM_NAME="svm01"
 VOL_NAME="iscsi_volume2"
 LUN_NAME="lun_1"
 LUN_SIZE="295279001600"  # Size in bytes for the LUN, example 275GB LUN will be 295279001600 bytes (275*1024*1024*1024)
+IGROUP_NAME="igroup_1"
+INITIATORS=("iqn.2004-10.com.ubuntu:Ubuntu-Client-1" "iqn.2004-10.com.ubuntu:Ubuntu-Client-2")  # List of initiators
 OS_TYPE="linux"  # OS Type for LUN
 
 LOG_FILE="$HOME/fsx_iscsi.log"  # Change log file location to home directory
@@ -41,13 +43,13 @@ run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN
 
 # Verify and log
 {
-    echo "LUN Serial-Hex:"
-    run_ssh_command "lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields serial-hex" | awk 'NR==3 {print $3}'
+    echo "LUN Details:"
+    run_ssh_command "lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields state,mapped,serial-hex"
 
     echo "iSCSI Network Interfaces:"
-    run_ssh_command "network interface show -vserver $SVM_NAME" | awk '/iscsi_1/ || /iscsi_2/ {print $2, $4}'
+    run_ssh_command "network interface show -vserver $SVM_NAME"
 
-    echo "iGroup details:"
+    echo "iGroup Details:"
     run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME"
 
     echo "LUN Mappings:"
