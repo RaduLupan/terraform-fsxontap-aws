@@ -13,7 +13,7 @@ OS_TYPE="linux"  # OS Type for LUN
 
 IGROUP_NAME="igroup_1"
 INITIATORS=("iqn.2004-10.com.ubuntu:Ubuntu-Client-1" "iqn.2004-10.com.ubuntu:Ubuntu-Client-2")  # List of initiators
-LOG_FILE="/var/log/fsx_iscsi.log"
+LOG_FILE="$HOME/fsx_iscsi.log"  # Change log file location to home directory
 
 # Install sshpass if not installed
 if ! command -v sshpass &> /dev/null; then
@@ -22,7 +22,7 @@ if ! command -v sshpass &> /dev/null; then
 fi
 
 # Execute commands over SSH
-sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP <<EOF
+sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP <<EOF
 
 # Create LUN
 lun create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -size $LUN_SIZE -ostype $OS_TYPE -space-allocation enabled
@@ -43,18 +43,18 @@ EOF
 # Verify LUN, iGroup, Mapping, and extract serial-hex + iSCSI IPs and save this locally
 {
 echo "LUN Serial-Hex:"
-sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
+sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
 "lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields serial-hex" | awk 'NR==3 {print $3}'
 
 echo "iSCSI Network Interfaces:"
-sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
+sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
 "network interface show -vserver $SVM_NAME" | awk '/iscsi_1/ || /iscsi_2/ {print $2, $4}'
 
 # Show iGroup and LUN mappings
-sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
+sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
 "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME"
 
-sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
+sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
 "lun mapping show -vserver $SVM_NAME"
 
 } | tee -a "$LOG_FILE"
