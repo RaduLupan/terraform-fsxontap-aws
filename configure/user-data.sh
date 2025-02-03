@@ -8,7 +8,7 @@ FSX_PASSWORD="your_password"
 SVM_NAME="svm_name"
 VOL_NAME="vol_name"
 LUN_NAME="lun_name"
-LUN_SIZE="size"  # Example: 100g
+LUN_SIZE="size"  # Size in bytes for the LUN, example 275GB LUN will be 295279001600 bytes (275*1024*1024*1024)
 OS_TYPE="linux"  # OS Type for LUN
 
 IGROUP_NAME="igroup_name"
