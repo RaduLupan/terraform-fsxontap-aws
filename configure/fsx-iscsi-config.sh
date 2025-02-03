@@ -21,40 +21,38 @@ if ! command -v sshpass &> /dev/null; then
     sudo apt update && sudo apt install -y sshpass
 fi
 
-# Execute commands over SSH
-sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP <<EOF
+# Consolidate SSH commands to reduce context issues
+execute_command() {
+    local COMMAND="$1"
+    sshpass -p "$FSX_PASSWORD" ssh -T -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP "$COMMAND"
+}
 
-# Create LUN
-lun create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -size $LUN_SIZE -ostype $OS_TYPE -space-allocation enabled
-
-# Create iGroup
-lun igroup create -vserver $SVM_NAME -igroup $IGROUP_NAME -protocol iscsi -ostype linux
-
-# Add multiple initiators to iGroup
+# Command block execution via SSH for setup tasks
+execute_command <<EOF
+    lun create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -size $LUN_SIZE -ostype $OS_TYPE -space-allocation enabled
+    lun igroup create -vserver $SVM_NAME -igroup $IGROUP_NAME -protocol iscsi -ostype linux
 $(for INITIATOR in "${INITIATORS[@]}"; do
-    echo "lun igroup add -vserver $SVM_NAME -igroup $IGROUP_NAME -initiator $INITIATOR"
+    echo "    lun igroup add -vserver $SVM_NAME -igroup $IGROUP_NAME -initiator $INITIATOR"
 done)
-
-# Map LUN to iGroup
-lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -igroup $IGROUP_NAME
-
+    lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -igroup $IGROUP_NAME
 EOF
 
-# Verify LUN, iGroup, Mapping, and extract serial-hex + iSCSI IPs and save this locally
+# Verifying setup and storing logs
 {
 echo "LUN Serial-Hex:"
-sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
-"lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields serial-hex" | awk 'NR==3 {print $3}'
+execute_command \
+    "lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields serial-hex" | awk 'NR==3 {print $3}'
 
 echo "iSCSI Network Interfaces:"
-sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
-"network interface show -vserver $SVM_NAME" | awk '/iscsi_1/ || /iscsi_2/ {print $2, $4}'
+execute_command \
+    "network interface show -vserver $SVM_NAME" | awk '/iscsi_1/ || /iscsi_2/ {print $2, $4}'
 
 # Show iGroup and LUN mappings
-sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
-"lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME"
+echo "iGroup details:"
+execute_command \
+    "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME"
 
-sshpass -p "$FSX_PASSWORD" ssh -t -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP \
-"lun mapping show -vserver $SVM_NAME"
-
+echo "LUN Mappings:"
+execute_command \
+    "lun mapping show -vserver $SVM_NAME"
 } | tee -a "$LOG_FILE"
