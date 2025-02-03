@@ -1,18 +1,18 @@
 #!/bin/bash
 
 # Variables
-FSX_MGMT_IP="management_endpoint_ip"
+FSX_MGMT_IP="198.19.255.155"
 FSX_USERNAME="fsxadmin"
-FSX_PASSWORD="your_password"
+FSX_PASSWORD="MyTestEfEsEx2025!"
 
-SVM_NAME="svm_name"
-VOL_NAME="vol_name"
-LUN_NAME="lun_name"
-LUN_SIZE="size"  # Size in bytes for the LUN, example 275GB LUN will be 295279001600 bytes (275*1024*1024*1024)
+SVM_NAME="svm01"
+VOL_NAME="iscsi_volume2"
+LUN_NAME="lun_1"
+LUN_SIZE="295279001600"  # Size in bytes for the LUN, example 275GB LUN will be 295279001600 bytes (275*1024*1024*1024)
 OS_TYPE="linux"  # OS Type for LUN
 
-IGROUP_NAME="igroup_name"
-INITIATORS=("iqn.2004-10.com.ubuntu:client1" "iqn.2004-10.com.ubuntu:client2")  # List of initiators
+IGROUP_NAME="igroup_1"
+INITIATORS=("iqn.2004-10.com.ubuntu:Ubuntu-Client-1" "iqn.2004-10.com.ubuntu:Ubuntu-Client-2")  # List of initiators
 LOG_FILE="/var/log/fsx_iscsi.log"
 
 # Install sshpass if not installed
