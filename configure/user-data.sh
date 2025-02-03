@@ -13,6 +13,7 @@ OS_TYPE="linux"  # OS Type for LUN
 
 IGROUP_NAME="igroup_name"
 INITIATORS=("iqn.2004-10.com.ubuntu:client1" "iqn.2004-10.com.ubuntu:client2")  # List of initiators
+LOG_FILE="/var/log/fsx_iscsi.log"
 
 # Install sshpass if not installed
 if ! command -v sshpass &> /dev/null; then
@@ -39,9 +40,19 @@ lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -igroup $IG
 
 EOF
 
-# Verify LUN, iGroup, and Mapping
-sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP <<EOF
-lun show -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME
+# Verify LUN, iGroup, Mapping, and extract serial-hex + iSCSI IPs
+sshpass -p "$FSX_PASSWORD" ssh -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP <<EOF | tee -a "$LOG_FILE"
+
+# Extract serial-hex and log it
+echo "LUN Serial-Hex:" >> $LOG_FILE
+lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields serial-hex | awk 'NR==3 {print \$3}' >> $LOG_FILE
+
+# Log iSCSI IPs
+echo "iSCSI Network Interfaces:" >> $LOG_FILE
+network interface show -vserver $SVM_NAME | awk '/iscsi_1/ || /iscsi_2/ {print \$2, \$4}' >> $LOG_FILE
+
+# Show iGroup and LUN mappings
 lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME
 lun mapping show -vserver $SVM_NAME
+
 EOF
