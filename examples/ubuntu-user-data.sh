@@ -69,8 +69,8 @@ if [ -z "$INSTANCE_NAME" ]; then
     INSTANCE_NAME="Ubuntu-Client"
 fi
 
-# Sanitize INSTANCE_NAME to remove any invalid characters for the SSM parameter name
-INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9-]/-/g')
+# Sanitize INSTANCE_NAME to remove any invalid characters for the SSM parameter name and convert to lowercase
+INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]')
 
 # Update iSCSI initiator name
 iscsi_initiator_name="iqn.2004-10.com.ubuntu:$INSTANCE_NAME"
