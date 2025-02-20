@@ -53,7 +53,7 @@ if [ -z "$SERIAL_HEX" ] || [ -z "$ISCSI_IP" ]; then
     exit 1
 fi
 
-# Discover and log in to iSCSI target
+# Discover iSCSI targets
 log "Discovering iSCSI targets on $ISCSI_IP..."
 IQN=$(sudo iscsiadm --mode discovery --type sendtargets --portal "$ISCSI_IP" | awk '{print $2}' | head -n 1)
 
@@ -64,59 +64,56 @@ fi
 
 log "Discovered IQN: $IQN"
 
-log "Establishing a record for target $IQN..."
-sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --op new
-if [ $? -ne 0 ]; then
-    log "Error: Failed to establish a record for the target node."
-    exit 1
-fi
-
-log "Updating number of sessions for $IQN..."
-sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --op update -n node.session.nr_sessions -v 8
-
-log "Logging into iSCSI target $IQN..."
-sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --login
-if [ $? -ne 0 ]; then
-    log "Error: Failed to log in to iSCSI target $IQN."
-    exit 1
+# Check if session already exists
+if iscsiadm -m session | grep -q "$IQN"; then
+    log "iSCSI session already logged in for $IQN. Skipping login."
+else
+    log "Establishing a record for target $IQN..."
+    sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --op new
+    sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --login
 fi
 
 # Execute full setup for first client
 if [ "$INSTANCE_NAME" == "Ubuntu-Client-1" ]; then
     log "Running full setup for first client: $INSTANCE_NAME"
 
-    # Verify multipath status
-    log "Verifying multipath status..."
-    sudo multipath -ll | sudo tee -a $LOG_FILE
-
-    # Append multipath configuration
-    log "Checking for existing multipath configuration..."
-    if ! sudo grep -q -F "wwid 3600a0980$SERIAL_HEX" /etc/multipath.conf; then
-        log "Appending multipath configuration..."
-        echo -e "multipaths {\n    multipath {\n        wwid 3600a0980$SERIAL_HEX\n        alias $MULTIPATH_ALIAS\n    }\n}" | sudo tee -a /etc/multipath.conf > /dev/null
+    # Check and configure multipath
+    if ! sudo multipath -ll | grep -q "3600a0980$SERIAL_HEX"; then
+        log "Configuring multipath..."
+        sudo systemctl restart multipathd.service
+        if ! sudo grep -q -F "wwid 3600a0980$SERIAL_HEX" /etc/multipath.conf; then
+            echo -e "multipaths {\n    multipath {\n        wwid 3600a0980$SERIAL_HEX\n        alias $MULTIPATH_ALIAS\n    }\n}" | sudo tee -a /etc/multipath.conf > /dev/null
+        fi
+        sudo systemctl restart multipathd.service
     else
-        log "Multipath entry already exists for alias $MULTIPATH_ALIAS."
+        log "Multipath already configured."
     fi
 
-    # Restart multipathd service
-    log "Restarting multipathd service..."
-    sudo systemctl restart multipathd.service
+    # Partition and format the disk only if it's not done
+    if ! lsblk $PARTITION > /dev/null 2>&1; then
+        log "Partitioning the disk..."
+        (echo o; echo n; echo p; echo 1; echo ''; echo ''; echo w) | sudo fdisk /dev/mapper/$MULTIPATH_ALIAS
+    else
+        log "Partition already exists."
+    fi
 
-    # Partition the disk
-    log "Partitioning the disk..."
-    (echo o; echo n; echo p; echo 1; echo ''; echo ''; echo w) | sudo fdisk /dev/mapper/$MULTIPATH_ALIAS
-
-    # Create ext4 filesystem on the new partition
-    log "Creating ext4 filesystem..."
-    sudo mkfs.ext4 $PARTITION
+    if ! sudo blkid $PARTITION; then
+        log "Creating ext4 filesystem..."
+        sudo mkfs.ext4 $PARTITION
+    else
+        log "Filesystem already exists."
+    fi
 fi
 
 # Mount filesystem and set ownership (for all clients)
-log "Ensuring mount point directory $MOUNT_POINT exists..."
-sudo mkdir -p $MOUNT_POINT
-
-log "Mounting the filesystem at $MOUNT_POINT..."
-sudo mount -t ext4 $PARTITION $MOUNT_POINT
+if ! mount | grep -q "$MOUNT_POINT"; then
+    log "Ensuring mount point directory $MOUNT_POINT exists..."
+    sudo mkdir -p $MOUNT_POINT
+    log "Mounting the filesystem at $MOUNT_POINT..."
+    sudo mount -t ext4 $PARTITION $MOUNT_POINT
+else
+    log "Filesystem already mounted."
+fi
 
 log "Changing ownership of $MOUNT_POINT to ssm-user..."
 sudo chown ssm-user:ssm-user $MOUNT_POINT
