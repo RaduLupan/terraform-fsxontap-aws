@@ -20,7 +20,20 @@ variable "preferred_subnet_id" {
 variable "storage_capacity" {
   description = "Specifies the storage capacity (GiB) of the file system. Valid values are 1024 and 196608/524288"
   type        = number
-  default     = 1024
+}
+
+variable "iscsi_volume1_size_mega_bytes" {
+  description = "Specifies the size of the iSCSI volume 1 in MB"
+  type        = number
+}
+variable "iscsi_volume2_size_mega_bytes" {
+  description = "Specifies the size of the iSCSI volume 2 in MB"
+  type        = number
+}
+
+variable "nfs_volume1_size_mega_bytes" {
+  description = "Specifies the size of the NFS volume 1 in MB"
+  type        = number
 }
 
 #---------------------------------------------------------------
