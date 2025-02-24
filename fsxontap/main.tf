@@ -123,10 +123,10 @@ resource "aws_fsx_ontap_volume" "iscsi_volume2" {
   ontap_volume_type          = "RW"
 }
 
-# Create SSM Parameter Store param for management endpoint
-resource "aws_ssm_parameter" "management_endpoint" {
-  name        = "/fsxontap-poc/management-endpoint"
-  description = "FSX Ontap Management Endpoint"
+# Create SSM Parameter Store param for management endpoint IP
+resource "aws_ssm_parameter" "management_endpoint_ip" {
+  name        = "/fsxontap-poc/management-endpoint-ip"
+  description = "FSX Ontap Management Endpoint IP"
   type        = "String"
   value       = "<management_ip_placeholder>"
 }
