@@ -11,7 +11,6 @@ output "fsx-ontap-id" {
 output "fsx-ontap-endpoints" {
   description = "The endpoints for the file system."
   value       = aws_fsx_ontap_file_system.main.endpoints
-  
 }
 
 output "svm-endpoints" {
@@ -20,12 +19,18 @@ output "svm-endpoints" {
 }
 
 output "nfs_volume1" {
-  description = "The ID for the NFS volume."
+  description = "The ID for the NFS volume 1."
   value       = aws_fsx_ontap_volume.nfs_volume1.id
 }
 
+output "iSCSI_volume1" {
+  description = "The ID for the iSCSI volume 1."
+  value       = aws_fsx_ontap_volume.iscsi_volume1.id
+
+}
+
 output "iSCSI_volume2" {
-  description = "The ID for the iSCSI volume."
+  description = "The ID for the iSCSI volume 2."
   value       = aws_fsx_ontap_volume.iscsi_volume2.id
-  
+
 }
