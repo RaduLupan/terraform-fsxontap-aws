@@ -31,20 +31,23 @@ $ cd fsxontap
 $ terraform init
 $ terraform apply
 ```
-4. (Manual) Set up admin passwords and save them in the SSM Parameter Store.
-    - Set passwords for ```fsxadmin``` and ```vsadmin``` accounts.
-    - Create SSM Parameter ```/fsx-ontap-poc/admin/management-ip``` string with value: ```<management_IP>```.
-    - Create SSM Parameter ```/fsx-ontap-poc/admin/management-user``` string with value: ```fsxadmin```
-    - Create SSM Parameter ```/fsx-ontap-poc/admin/management-pwd``` secure string with value ```<Your_fsxadmin_password>```
-    
-5. Deploy a couple of EC2 instances to use as clients connected to the FSx ONTAP file system.
+4. Deploy a couple of EC2 instances to use as clients connected to the FSx ONTAP file system.
+
 ```
 $ cd ../ubuntu-clients
 $ terraform init
 $ terraform apply
 ```
-
 As part of the user-data script that runs at startup on the client instances, the iSCSI packages are installed and multipath configured and set to run automatically.
+
+5. (Manual) Save parameters in the SSM Parameter Store.
+    - In the FSx console -> **Administration** tab -> **ONTAP administrator password** -> **Update** to create a password for the ```fsxadmin``` account.
+    - Store the password in the SSM Parameter ```/fsxontap-poc/management-password```  that was created by Terraform in step 3.
+    - In the FSx console -> **Administration** tab -> **Management endpoint - IP address** get the IP of the management endpoint.
+    - Store the IP in the SSM Parameter ```/fsxontap-poc/management-endpoint-ip``` that was created by Terraform in step 3.
+    
+6. (Manual) 
+
 
 
 
