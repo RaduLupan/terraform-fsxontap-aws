@@ -22,11 +22,11 @@ fi
 
 SVM_NAME="svm01"
 
-VOL1_NAME="iscsi_volume_1"
+VOL1_NAME="iscsi_volume1"
 LUN1_NAME="lun_1"
 LUN1_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB LUN will be 161061273600 bytes (150*1024*1024*1024)
 
-VOL2_NAME="iscsi_volume_2"
+VOL2_NAME="iscsi_volume2"
 LUN2_NAME="lun_2"
 LUN2_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB LUN will be 161061273600 bytes (150*1024*1024*1024)
 
