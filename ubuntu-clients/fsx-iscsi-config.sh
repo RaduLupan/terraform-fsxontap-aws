@@ -1,11 +1,11 @@
 #!/bin/bash
 
 # Variables - Replace these with your actual parameter names
-PARAM_FSX_MGMT_IP="/fsx-ontap-poc/admin/management-ip"
-PARAM_FSX_USERNAME="/fsx-ontap-poc/admin/management-user"
-PARAM_FSX_PASSWORD="/fsx-ontap-poc/admin/management-pwd"
-PARAM_INITIATOR_1="/fsx-ontap-poc/clients/iscsi-initiator-name/Ubuntu-Client-1"
-PARAM_INITIATOR_2="/fsx-ontap-poc/clients/iscsi-initiator-name/Ubuntu-Client-2"
+PARAM_FSX_MGMT_IP="/fsxontap-poc/management-endpoint-ip"
+PARAM_FSX_USERNAME="/fsxontap-poc/management-user"
+PARAM_FSX_PASSWORD="/fsxontap-poc/management-password"
+PARAM_INITIATOR_1="/fsxontap-poc/iscsi-initiator-name/ubuntu-client-1"
+PARAM_INITIATOR_2="/fsxontap-poc/iscsi-initiator-name/ubuntu-client-2"
 
 # Retrieve values from SSM Parameter Store
 FSX_MGMT_IP=$(aws ssm get-parameter --name "$PARAM_FSX_MGMT_IP" --query "Parameter.Value" --output text)
@@ -21,10 +21,18 @@ if [ -z "$FSX_MGMT_IP" ] || [ -z "$FSX_USERNAME" ] || [ -z "$FSX_PASSWORD" ] || 
 fi
 
 SVM_NAME="svm01"
-VOL_NAME="iscsi_volume2"
-LUN_NAME="lun_1"
-LUN_SIZE="295279001600"  # Size in bytes for the LUN, example 275GB LUN will be 295279001600 bytes (275*1024*1024*1024)
-IGROUP_NAME="igroup_1"
+
+VOL1_NAME="iscsi_volume_1"
+LUN1_NAME="lun_1"
+LUN1_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB LUN will be 161061273600 bytes (150*1024*1024*1024)
+
+VOL2_NAME="iscsi_volume_2"
+LUN2_NAME="lun_2"
+LUN2_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB LUN will be 161061273600 bytes (150*1024*1024*1024)
+
+IGROUP1_NAME="igroup_1"
+IGROUP2_NAME="igroup_2"
+
 INITIATORS=("$INITIATOR_1" "$INITIATOR_2")  # List of initiators from SSM
 OS_TYPE="linux"  # OS Type for LUN
 
@@ -51,34 +59,51 @@ run_ssh_command() {
 # Begin logging
 echo "Starting script at $(date)" | tee -a "$LOG_FILE"
 
-# Create the LUN
-echo "Creating LUN..." | tee -a "$LOG_FILE"
-run_ssh_command "lun create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -size $LUN_SIZE -ostype $OS_TYPE -space-allocation enabled" | tee -a "$LOG_FILE"
+# Create the LUNs
+echo "Creating LUN 1..." | tee -a "$LOG_FILE"
+run_ssh_command "lun create -vserver $SVM_NAME -path /vol/$VOL1_NAME/$LUN1_NAME -size $LUN1_SIZE -ostype $OS_TYPE -space-allocation enabled" | tee -a "$LOG_FILE"
 
-# Create iGroup
-echo "Creating iGroup..." | tee -a "$LOG_FILE"
-run_ssh_command "lun igroup create -vserver $SVM_NAME -igroup $IGROUP_NAME -protocol iscsi -ostype linux" | tee -a "$LOG_FILE"
+echo "Creating LUN 2..." | tee -a "$LOG_FILE"
+run_ssh_command "lun create -vserver $SVM_NAME -path /vol/$VOL2_NAME/$LUN2_NAME -size $LUN2_SIZE -ostype $OS_TYPE -space-allocation enabled" | tee -a "$LOG_FILE"
 
-# Add each initiator to the iGroup
-for INITIATOR in "${INITIATORS[@]}"; do
-    echo "Adding initiator $INITIATOR to iGroup $IGROUP_NAME..." | tee -a "$LOG_FILE"
-    run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP_NAME -initiator $INITIATOR" | tee -a "$LOG_FILE"
-done
+# Create iGroups
+echo "Creating iGroup 1..." | tee -a "$LOG_FILE"
+run_ssh_command "lun igroup create -vserver $SVM_NAME -igroup $IGROUP1_NAME -protocol iscsi -ostype linux" | tee -a "$LOG_FILE"
 
-# Map the LUN to the iGroup
-echo "Mapping the LUN to the iGroup..." | tee -a "$LOG_FILE"
-run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -igroup $IGROUP_NAME" | tee -a "$LOG_FILE"
+echo "Creating iGroup 2..." | tee -a "$LOG_FILE"
+run_ssh_command "lun igroup create -vserver $SVM_NAME -igroup $IGROUP2_NAME -protocol iscsi -ostype linux" | tee -a "$LOG_FILE"
+
+# Add initiators to their respective iGroups
+echo "Adding initiator $INITIATOR_1 to iGroup $IGROUP1_NAME..." | tee -a "$LOG_FILE"
+run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP1_NAME -initiator $INITIATOR_1" | tee -a "$LOG_FILE"
+
+echo "Adding initiator $INITIATOR_2 to iGroup $IGROUP2_NAME..." | tee -a "$LOG_FILE"
+run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP2_NAME -initiator $INITIATOR_2" | tee -a "$LOG_FILE"
+
+# Map the LUNs to their respective iGroups
+echo "Mapping LUN 1 to iGroup 1..." | tee -a "$LOG_FILE"
+run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL1_NAME/$LUN1_NAME -igroup $IGROUP1_NAME" | tee -a "$LOG_FILE"
+
+echo "Mapping LUN 2 to iGroup 2..." | tee -a "$LOG_FILE"
+run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL2_NAME/$LUN2_NAME -igroup $IGROUP2_NAME" | tee -a "$LOG_FILE"
+
 
 # Verify and log
 {
-    echo "LUN Details:"
-    run_ssh_command "lun show -path /vol/$VOL_NAME/$LUN_NAME -vserver $SVM_NAME -fields state,mapped,serial-hex"
+    echo "LUN 1 Details:"
+    run_ssh_command "lun show -path /vol/$VOL1_NAME/$LUN1_NAME -vserver $SVM_NAME -fields state,mapped,serial-hex"
+    
+    echo "LUN 2 Details:"
+    run_ssh_command "lun show -path /vol/$VOL2_NAME/$LUN2_NAME -vserver $SVM_NAME -fields state,mapped,serial-hex"
 
     echo "iSCSI Network Interfaces:"
     run_ssh_command "network interface show -vserver $SVM_NAME"
 
-    echo "iGroup Details:"
-    run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME"
+    echo "iGroup 1 Details:"
+    run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP1_NAME"
+
+    echo "iGroup 2 Details:"
+    run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP2_NAME"
 
     echo "LUN Mappings:"
     run_ssh_command "lun mapping show -vserver $SVM_NAME"
