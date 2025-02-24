@@ -16,7 +16,7 @@ AWS_CLI_ZIP_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 NODE_SESSION_TIMEOUT=5
 
 # Define the SSM parameter path prefix
-SSM_PARAMETER_PATH_PREFIX="/fsx-ontap-poc/clients/iscsi-initiator-name"
+SSM_PARAMETER_PATH_PREFIX="/fsxontap-poc/iscsi-initiator-name"
 
 # Update package lists
 sudo apt update -y
