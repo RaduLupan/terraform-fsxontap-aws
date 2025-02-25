@@ -24,11 +24,11 @@ SVM_NAME="svm01"
 
 VOL1_NAME="iscsi_volume1"
 LUN1_NAME="lun_1"
-LUN1_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB LUN will be 161061273600 bytes (150*1024*1024*1024)
+LUN1_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB
 
 VOL2_NAME="iscsi_volume2"
 LUN2_NAME="lun_2"
-LUN2_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB LUN will be 161061273600 bytes (150*1024*1024*1024)
+LUN2_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB
 
 IGROUP1_NAME="igroup_1"
 IGROUP2_NAME="igroup_2"
@@ -51,42 +51,79 @@ run_ssh_command() {
     if [ $? -ne 0 ]; then
         echo "Command failed: $COMMAND"
         echo "Error: $OUTPUT"
-        exit 1
+    else
+        echo "$OUTPUT"
     fi
-    echo "$OUTPUT"
+}
+
+# Function to check if resource exists
+resource_exists() {
+    local RESOURCE_TYPE="$1"
+    local RESOURCE_IDENTIFIER="$2"
+    run_ssh_command "$RESOURCE_TYPE show -vserver $SVM_NAME | grep -q '$RESOURCE_IDENTIFIER'"
 }
 
 # Begin logging
 echo "Starting script at $(date)" | tee -a "$LOG_FILE"
 
-# Create the LUNs
-echo "Creating LUN 1..." | tee -a "$LOG_FILE"
-run_ssh_command "lun create -vserver $SVM_NAME -path /vol/$VOL1_NAME/$LUN1_NAME -size $LUN1_SIZE -ostype $OS_TYPE -space-allocation enabled" | tee -a "$LOG_FILE"
+# Create the LUN if it doesn't exist
+create_lun() {
+    local VOL_NAME="$1"
+    local LUN_NAME="$2"
+    local LUN_SIZE="$3"
+    if resource_exists lun "/vol/$VOL_NAME/$LUN_NAME"; then
+        echo "LUN $LUN_NAME already exists. Skipping creation." | tee -a "$LOG_FILE"
+    else
+        echo "Creating LUN $LUN_NAME..." | tee -a "$LOG_FILE"
+        run_ssh_command "lun create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -size $LUN_SIZE -ostype $OS_TYPE -space-allocation enabled" | tee -a "$LOG_FILE"
+    fi
+}
 
-echo "Creating LUN 2..." | tee -a "$LOG_FILE"
-run_ssh_command "lun create -vserver $SVM_NAME -path /vol/$VOL2_NAME/$LUN2_NAME -size $LUN2_SIZE -ostype $OS_TYPE -space-allocation enabled" | tee -a "$LOG_FILE"
+# Create iGroup if it doesn't exist
+create_igroup() {
+    local IGROUP_NAME="$1"
+    if resource_exists "lun igroup" "$IGROUP_NAME"; then
+        echo "iGroup $IGROUP_NAME already exists. Skipping creation." | tee -a "$LOG_FILE"
+    else
+        echo "Creating iGroup $IGROUP_NAME..." | tee -a "$LOG_FILE"
+        run_ssh_command "lun igroup create -vserver $SVM_NAME -igroup $IGROUP_NAME -protocol iscsi -ostype linux" | tee -a "$LOG_FILE"
+    fi
+}
 
-# Create iGroups
-echo "Creating iGroup 1..." | tee -a "$LOG_FILE"
-run_ssh_command "lun igroup create -vserver $SVM_NAME -igroup $IGROUP1_NAME -protocol iscsi -ostype linux" | tee -a "$LOG_FILE"
+# Add initiator if it doesn't exist
+add_initiator() {
+    local IGROUP_NAME="$1"
+    local INITIATOR="$2"
+    if run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME | grep -q '$INITIATOR'"; then
+        echo "Initiator $INITIATOR already exists in $IGROUP_NAME. Skipping addition." | tee -a "$LOG_FILE"
+    else
+        echo "Adding initiator $INITIATOR to $IGROUP_NAME..." | tee -a "$LOG_FILE"
+        run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP_NAME -initiator $INITIATOR" | tee -a "$LOG_FILE"
+    fi
+}
 
-echo "Creating iGroup 2..." | tee -a "$LOG_FILE"
-run_ssh_command "lun igroup create -vserver $SVM_NAME -igroup $IGROUP2_NAME -protocol iscsi -ostype linux" | tee -a "$LOG_FILE"
+# Map the LUN to the iGroup if not already mapped
+map_lun() {
+    local VOL_NAME="$1"
+    local LUN_NAME="$2"
+    local IGROUP_NAME="$3"
+    if run_ssh_command "lun mapping show -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME" | grep -q "$IGROUP_NAME"; then
+        echo "LUN $LUN_NAME is already mapped to $IGROUP_NAME. Skipping mapping." | tee -a "$LOG_FILE"
+    else
+        echo "Mapping LUN $LUN_NAME to $IGROUP_NAME..." | tee -a "$LOG_FILE"
+        run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -igroup $IGROUP_NAME" | tee -a "$LOG_FILE"
+    fi
+}
 
-# Add initiators to their respective iGroups
-echo "Adding initiator $INITIATOR_1 to iGroup $IGROUP1_NAME..." | tee -a "$LOG_FILE"
-run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP1_NAME -initiator $INITIATOR_1" | tee -a "$LOG_FILE"
-
-echo "Adding initiator $INITIATOR_2 to iGroup $IGROUP2_NAME..." | tee -a "$LOG_FILE"
-run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP2_NAME -initiator $INITIATOR_2" | tee -a "$LOG_FILE"
-
-# Map the LUNs to their respective iGroups
-echo "Mapping LUN 1 to iGroup 1..." | tee -a "$LOG_FILE"
-run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL1_NAME/$LUN1_NAME -igroup $IGROUP1_NAME" | tee -a "$LOG_FILE"
-
-echo "Mapping LUN 2 to iGroup 2..." | tee -a "$LOG_FILE"
-run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL2_NAME/$LUN2_NAME -igroup $IGROUP2_NAME" | tee -a "$LOG_FILE"
-
+# Execute functions
+create_lun "$VOL1_NAME" "$LUN1_NAME" "$LUN1_SIZE"
+create_lun "$VOL2_NAME" "$LUN2_NAME" "$LUN2_SIZE"
+create_igroup "$IGROUP1_NAME"
+create_igroup "$IGROUP2_NAME"
+add_initiator "$IGROUP1_NAME" "$INITIATOR_1"
+add_initiator "$IGROUP2_NAME" "$INITIATOR_2"
+map_lun "$VOL1_NAME" "$LUN1_NAME" "$IGROUP1_NAME"
+map_lun "$VOL2_NAME" "$LUN2_NAME" "$IGROUP2_NAME"
 
 # Verify and log
 {
