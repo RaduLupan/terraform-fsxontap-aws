@@ -22,18 +22,19 @@ fi
 
 SVM_NAME="svm01"
 
+# It's important to ensure there's sufficient space in the volumes for metadata and potential snapshots, 
+# which is why sizing the LUNs slightly less than the total volume capacity is a common practice.
 VOL1_NAME="iscsi_volume1"
 LUN1_NAME="lun_1"
-LUN1_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB
+LUN1_SIZE="134217728000"  # Size in bytes for the LUN 125GB less than size of volume 150GB
 
 VOL2_NAME="iscsi_volume2"
 LUN2_NAME="lun_2"
-LUN2_SIZE="161061273600"  # Size in bytes for the LUN, example 150GB
+LUN2_SIZE="134217728000"  # Size in bytes for the LUN 125GB less than size of volume 150GB
 
 IGROUP1_NAME="igroup_1"
 IGROUP2_NAME="igroup_2"
 
-INITIATORS=("$INITIATOR_1" "$INITIATOR_2")  # List of initiators from SSM
 OS_TYPE="linux"  # OS Type for LUN
 
 LOG_FILE="$HOME/fsx_iscsi.log"
@@ -47,20 +48,19 @@ fi
 # Function to run commands via SSH
 run_ssh_command() {
     local COMMAND="$1"
-    OUTPUT=$(sshpass -p "$FSX_PASSWORD" ssh -T -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP "$COMMAND" 2>&1)
-    if [ $? -ne 0 ]; then
-        echo "Command failed: $COMMAND"
-        echo "Error: $OUTPUT"
-    else
-        echo "$OUTPUT"
-    fi
+    sshpass -p "$FSX_PASSWORD" ssh -T -o StrictHostKeyChecking=no $FSX_USERNAME@$FSX_MGMT_IP "$COMMAND"
 }
 
-# Function to check if resource exists
-resource_exists() {
-    local RESOURCE_TYPE="$1"
-    local RESOURCE_IDENTIFIER="$2"
-    run_ssh_command "$RESOURCE_TYPE show -vserver $SVM_NAME | grep -q '$RESOURCE_IDENTIFIER'"
+# Function to check if a LUN exists
+lun_exists() {
+    local LUN_NAME="$1"
+    run_ssh_command "lun show -vserver $SVM_NAME -path /vol/$LUN_NAME" > /dev/null 2>&1
+}
+
+# Function to check if an iGroup exists
+igroup_exists() {
+    local IGROUP_NAME="$1"
+    run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME" > /dev/null 2>&1
 }
 
 # Begin logging
@@ -71,7 +71,7 @@ create_lun() {
     local VOL_NAME="$1"
     local LUN_NAME="$2"
     local LUN_SIZE="$3"
-    if resource_exists lun "/vol/$VOL_NAME/$LUN_NAME"; then
+    if lun_exists "$LUN_NAME"; then
         echo "LUN $LUN_NAME already exists. Skipping creation." | tee -a "$LOG_FILE"
     else
         echo "Creating LUN $LUN_NAME..." | tee -a "$LOG_FILE"
@@ -82,7 +82,7 @@ create_lun() {
 # Create iGroup if it doesn't exist
 create_igroup() {
     local IGROUP_NAME="$1"
-    if resource_exists "lun igroup" "$IGROUP_NAME"; then
+    if igroup_exists "$IGROUP_NAME"; then
         echo "iGroup $IGROUP_NAME already exists. Skipping creation." | tee -a "$LOG_FILE"
     else
         echo "Creating iGroup $IGROUP_NAME..." | tee -a "$LOG_FILE"
@@ -94,11 +94,11 @@ create_igroup() {
 add_initiator() {
     local IGROUP_NAME="$1"
     local INITIATOR="$2"
-    if run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME | grep -q '$INITIATOR'"; then
-        echo "Initiator $INITIATOR already exists in $IGROUP_NAME. Skipping addition." | tee -a "$LOG_FILE"
-    else
+    if ! run_ssh_command "lun igroup show -vserver $SVM_NAME -igroup $IGROUP_NAME | grep '$INITIATOR'"; then
         echo "Adding initiator $INITIATOR to $IGROUP_NAME..." | tee -a "$LOG_FILE"
         run_ssh_command "lun igroup add -vserver $SVM_NAME -igroup $IGROUP_NAME -initiator $INITIATOR" | tee -a "$LOG_FILE"
+    else
+        echo "Initiator $INITIATOR already exists in $IGROUP_NAME. Skipping addition." | tee -a "$LOG_FILE"
     fi
 }
 
@@ -107,11 +107,11 @@ map_lun() {
     local VOL_NAME="$1"
     local LUN_NAME="$2"
     local IGROUP_NAME="$3"
-    if run_ssh_command "lun mapping show -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME" | grep -q "$IGROUP_NAME"; then
-        echo "LUN $LUN_NAME is already mapped to $IGROUP_NAME. Skipping mapping." | tee -a "$LOG_FILE"
-    else
+    if ! run_ssh_command "lun mapping show -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME | grep '$IGROUP_NAME'"; then
         echo "Mapping LUN $LUN_NAME to $IGROUP_NAME..." | tee -a "$LOG_FILE"
         run_ssh_command "lun mapping create -vserver $SVM_NAME -path /vol/$VOL_NAME/$LUN_NAME -igroup $IGROUP_NAME" | tee -a "$LOG_FILE"
+    else
+        echo "LUN $LUN_NAME is already mapped to $IGROUP_NAME. Skipping mapping." | tee -a "$LOG_FILE"
     fi
 }
 
