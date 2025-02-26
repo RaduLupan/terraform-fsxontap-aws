@@ -1,5 +1,29 @@
 #!/bin/bash
 
+# ==============================================================================
+# Script Name: create_iscsi_luns.sh
+#
+# Description: This script automates the creation and management of iSCSI LUNs
+#              on an FSx ONTAP file system. It checks for the existence of
+#              specified LUNs, iGroups, and mappings, creating them only if they
+#              do not already exist. This makes the script idempotent.
+#
+# Parameters are retrieved from AWS SSM Parameter Store for:
+#   - FSx Management IP
+#   - FSx Username and Password
+#   - iSCSI initiator names for Ubuntu clients
+#
+# Usage: ./create_iscsi_luns.sh
+#
+# Requirements:
+#   - SSH access to FSx ONTAP management endpoint.
+#   - AWS CLI configured and authenticated to access SSM Parameter Store.
+#   - sshpass installed for SSH automation with password.
+#
+# Author: Radu Lupan - Assisted by OpenAI ChatGPT (gpt-4o)
+# Date:   2025-02-25
+# ==============================================================================
+
 # Variables - Replace these with your actual parameter names
 PARAM_FSX_MGMT_IP="/fsxontap-poc/management-endpoint-ip"
 PARAM_FSX_USERNAME="/fsxontap-poc/management-user"
