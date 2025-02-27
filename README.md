@@ -46,7 +46,16 @@ As part of the user-data script that runs at startup on the client instances, th
     - In the FSx console -> **Administration** tab -> **Management endpoint - IP address** get the IP of the management endpoint.
     - Store the IP in the SSM Parameter ```/fsxontap-poc/management-endpoint-ip``` that was created by Terraform in step 3.
     
-6. (Manual) 
+6. (Manual) Create two iSCSI LUNs one on each iSCSI volumes and populate SSM Parameters.
+    - Use SSM Session Manager to connect to any of the two Ubuntu clients and run the bash script ```/scripts/create_iscsi_luns.sh```. The script is configured to create two 125GB LUNs on each of the iSCSI volumes which are set for 150GB. If you end up sizing your iSCSI volumes differently make sure you modify the size of the LUNs accordingly to be less than the size of respective volume to allow for snapshots and metadata.
+    - From the script output (or from the log file ```/scripts/create_iscsi_luns.log```) capture the **serial-hex** value for **lun_1**.
+    - Store the the **serial-hex** value for **lun_1** in the SSM Parameter ```/fsxontap-poc/iscsi-lun1-serial-hex``` that was created by Terraform in step 3.
+    - From the script output (or from the log file ```/scripts/create_iscsi_luns.log```) capture the **serial-hex** value for **lun_2**.
+    - Store the the **serial-hex** value for **lun_2** in the SSM Parameter ```/fsxontap-poc/iscsi-lun2-serial-hex``` that was created by Terraform in step 3.
+    - From the script output (or from the log file ```/scripts/create_iscsi_luns.log```) capture the **iscsi_ip** value (either **iscsi_1** or **iscsi_2** but only the network address part, no /Mask - ie if **iscsi_1** is ```10.0.131.46/20``` the network IP is ```10.0.131.46```).
+    - Store the the **iscsi_ip** value in the SSM Parameter ```/fsxontap-poc/iscsi-network-ip``` that was created by Terraform in step 3.
+
+
 
 
 
