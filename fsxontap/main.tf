@@ -146,3 +146,27 @@ resource "aws_ssm_parameter" "management_password" {
   type        = "SecureString"
   value       = "<management_password_placeholder>"
 }
+
+# Create SSM Parameter Store param for iSCSI LUN 1 serial hex
+resource "aws_ssm_parameter" "iscsi_lun1_serial_hex" {
+  name        = "/fsxontap-poc/iscsi-lun1-serial-hex"
+  description = "FSX Ontap iSCSI LUN 1 Serial Hex"
+  type        = "String"
+  value       = "<iscsi_lun1_serial_hex_placeholder>"
+}
+
+# Create SSM Parameter Store param for iSCSI LUN 2 serial hex
+resource "aws_ssm_parameter" "iscsi_lun2_serial_hex" {
+  name        = "/fsxontap-poc/iscsi-lun2-serial-hex"
+  description = "FSX Ontap iSCSI LUN 2 Serial Hex"
+  type        = "String"
+  value       = "<iscsi_lun2_serial_hex_placeholder>"
+}
+
+# Create SSM Parameter Store param for iscsi_network_ip
+resource "aws_ssm_parameter" "iscsi_network_ip" {
+  name        = "/fsxontap-poc/iscsi-network-ip"
+  description = "FSX Ontap iSCSI Network IP"
+  type        = "String"
+  value       = "<iscsi_network_ip_placeholder>"
+}
