@@ -138,6 +138,42 @@ data "template_file" "user_data" {
   }
 }
 
+# Create an S3 bucket in the same region to upload the bash scripts to.
+
+resource "random_id" "bucket_suffix" {
+  byte_length = 6 # 6 bytes * 2 hex chars per byte = 12 hex chars
+}
+
+resource "aws_s3_bucket" "main" {
+  bucket = "fsxontap-poc-scripts-${random_id.bucket_suffix.hex}"
+
+  tags = {
+    Name        = "fsxontap-poc-scripts"
+    Environment = var.environment
+  }
+}
+
+resource "aws_s3_bucket_versioning" "versioning" {
+  bucket = aws_s3_bucket.main.id
+  versioning_configuration {
+    status = "Enabled"
+  }
+}
+
+resource "aws_s3_object" "script1" {
+  bucket = aws_s3_bucket.main.id
+  key    = "create_iscsi_luns.sh"
+  source = "../scripts/create_iscsi_luns.sh" # Ensure the script exists locally.
+  etag   = filemd5("../scripts/create_iscsi_luns.sh") #forces update on file change.
+}
+
+resource "aws_s3_object" "script2" {
+  bucket = aws_s3_bucket.main.id
+  key    = "mount_iscsi_lun.sh"
+  source = "../scripts/mount_iscsi_lun.sh" # Ensure the script exists locally.
+  etag   = filemd5("../scripts/mount_iscsi_lun.sh") #forces update on file change.
+}
+
 # Client(s) EC2 instance(s) to connect to FSx ONTAP file system.
 resource "aws_instance" "ubuntu" {
   count = local.count_ec2
