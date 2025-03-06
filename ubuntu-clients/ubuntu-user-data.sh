@@ -11,6 +11,12 @@ function cleanup {
 }
 trap cleanup EXIT
 
+# Injected variables from Terraform
+region="${region}"
+s3_bucket_name="${s3_bucket_name}"
+s3_key_create_iscsi_luns="${s3_key_create_iscsi_luns}"
+s3_key_mount_iscsi_lun="${s3_key_mount_iscsi_lun}"
+
 # Variables
 AWS_CLI_ZIP_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 NODE_SESSION_TIMEOUT=5
@@ -87,3 +93,20 @@ aws ssm put-parameter --name "$SSM_PARAMETER_PATH_PREFIX/$INSTANCE_NAME" \
                       --overwrite
 
 echo "Custom iSCSI initiator name set successfully and saved to SSM: $iscsi_initiator_name"
+
+# Create the /scripts directory and set permissions
+echo "Creating /scripts directory..."
+sudo mkdir -p /scripts
+sudo chown ssm-user:ssm-user /scripts
+sudo chmod 755 /scripts
+
+# Download scripts from S3
+echo "Downloading scripts from S3..."
+aws s3 cp "s3://${s3_bucket_name}/${s3_key_create_iscsi_luns}" "/scripts/create_iscsi_luns.sh" --region "$region"
+aws s3 cp "s3://${s3_bucket_name}/${s3_key_mount_iscsi_lun}" "/scripts/mount_iscsi_lun.sh" --region "$region"
+
+# Ensure the downloaded scripts are executable
+sudo chmod +x /scripts/create_iscsi_luns.sh
+sudo chmod +x /scripts/mount_iscsi_lun.sh
+
+echo "Scripts downloaded and permissions set."
