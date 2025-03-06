@@ -1,4 +1,35 @@
 #!/bin/bash
+# ==============================================================================
+# Script Name: user_data_script.sh
+#
+# Description: This script is used in AWS EC2 user-data to automate the setup and
+#              configuration of a Linux instance for iSCSI connectivity and script
+#              deployment. The script performs the following operations:
+#                - Installs AWS CLI, open-iscsi, and multipath tools.
+#                - Configures iSCSI settings and initiator names.
+#                - Downloads specified scripts from an S3 bucket to /scripts.
+#                - Logs actions to a file accessible by both ubuntu and ssm-user.
+#
+# Usage: This script is typically run as part of EC2 instance initialization,
+#        injected by Terraform. Ensure all required variables are provided through
+#        Terraform's template_file mechanism.
+#
+# Injected Variables:
+#   - region: The AWS region of the S3 bucket.
+#   - s3_bucket_name: The name of the S3 bucket containing scripts.
+#   - s3_key_create_iscsi_luns: S3 key for the create_iscsi_luns script.
+#   - s3_key_mount_iscsi_lun: S3 key for the mount_iscsi_lun script.
+#
+# Log File: /var/log/user_data_script.log
+#
+# Prerequisites:
+#   - AWS CLI installed and configured for S3 access.
+#   - Network access to the S3 bucket in the specified region.
+#   - Correct IAM role assigned to the EC2 instance for S3 access.
+#
+# Author: Radu Lupan assisted by OpenAI ChatGPT (gpt-4o)
+# Date:   2025-03-05
+# ==============================================================================
 
 set -e
 
