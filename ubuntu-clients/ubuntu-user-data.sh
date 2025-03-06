@@ -10,8 +10,8 @@ log() {
     echo "$1" | tee -a $LOG_FILE
 }
 
-# Log and exit if an error occurs
-trap 'log "Error occurred, exiting"; exit 1' ERR
+# Log and exit if an error occurs, capturing the failing line
+trap 'log "Error occurred at line $LINENO: $BASH_COMMAND"; exit 1' ERR
 
 # Clean up resources
 function cleanup {
@@ -46,31 +46,31 @@ NODE_SESSION_TIMEOUT=5
 SSM_PARAMETER_PATH_PREFIX="/fsxontap-poc/iscsi-initiator-name"
 
 log "Updating package lists..."
-sudo apt update -y
+apt update -y
 
 log "Installing AWS CLI v2..."
-sudo apt install unzip -y
+apt install unzip -y
 curl "$AWS_CLI_ZIP_URL" -o "awscliv2.zip"
 unzip awscliv2.zip
-sudo ./aws/install
+./aws/install
 
 log "Installing open-iscsi package..."
-sudo apt install open-iscsi -y
+apt install open-iscsi -y
 
 log "Setting replacement timeout in /etc/iscsi/iscsid.conf..."
-sudo sed -i "s/node.session.timeo.replacement_timeout = .*/node.session.timeo.replacement_timeout = $NODE_SESSION_TIMEOUT/" /etc/iscsi/iscsid.conf
-grep -q "node.session.timeo.replacement_timeout" /etc/iscsi/iscsid.conf || echo "node.session.timeo.replacement_timeout = $NODE_SESSION_TIMEOUT" | sudo tee -a /etc/iscsi/iscsid.conf
-sudo cat /etc/iscsi/iscsid.conf | grep node.session.timeo.replacement_timeout
+sed -i "s/node.session.timeo.replacement_timeout = .*/node.session.timeo.replacement_timeout = $NODE_SESSION_TIMEOUT/" /etc/iscsi/iscsid.conf
+grep -q "node.session.timeo.replacement_timeout" /etc/iscsi/iscsid.conf || echo "node.session.timeo.replacement_timeout = $NODE_SESSION_TIMEOUT" | tee -a /etc/iscsi/iscsid.conf
+cat /etc/iscsi/iscsid.conf | grep node.session.timeo.replacement_timeout
 
 log "Enabling and starting iSCSI service..."
-sudo systemctl enable --now iscsid
-sudo systemctl is-active iscsid
+systemctl enable --now iscsid
+systemctl is-active iscsid
 
 log "Installing multipath tools..."
-sudo apt install multipath-tools multipath-tools-boot -y
+apt install multipath-tools multipath-tools-boot -y
 
 log "Creating and configuring /etc/multipath.conf..."
-sudo tee /etc/multipath.conf > /dev/null <<EOF
+tee /etc/multipath.conf > /dev/null <<EOF
 defaults {
     user_friendly_names yes
     find_multipaths yes
@@ -79,9 +79,9 @@ defaults {
 EOF
 
 log "Enabling and starting multipath service..."
-sudo systemctl enable --now multipathd
-sudo systemctl restart multipathd
-sudo systemctl is-active multipathd
+systemctl enable --now multipathd
+systemctl restart multipathd
+systemctl is-active multipathd
 
 log "Fetching instance metadata..."
 TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
@@ -97,8 +97,8 @@ fi
 INSTANCE_NAME=$(echo "$INSTANCE_NAME" | sed 's/[^a-zA-Z0-9-]/-/g' | tr '[:upper:]' '[:lower:]')
 
 log "Updating iSCSI Initiator Name to iqn.2004-10.com.ubuntu:$INSTANCE_NAME..."
-sudo sed -i "s|^InitiatorName=.*|InitiatorName=iqn.2004-10.com.ubuntu:$INSTANCE_NAME|" /etc/iscsi/initiatorname.iscsi
-sudo systemctl restart iscsid
+sed -i "s|^InitiatorName=.*|InitiatorName=iqn.2004-10.com.ubuntu:$INSTANCE_NAME|" /etc/iscsi/initiatorname.iscsi
+systemctl restart iscsid
 
 log "Saving iSCSI Initiator Name to SSM Parameter Store..."
 aws ssm put-parameter --name "$SSM_PARAMETER_PATH_PREFIX/$INSTANCE_NAME" \
@@ -107,16 +107,24 @@ aws ssm put-parameter --name "$SSM_PARAMETER_PATH_PREFIX/$INSTANCE_NAME" \
                       --overwrite
 
 log "Creating /scripts directory and setting permissions..."
-sudo mkdir -p /scripts
-sudo chown ssm-user:ssm-user /scripts
-sudo chmod 755 /scripts
+
+mkdir -p /scripts
+
+# Check if ssm-user exists
+if id -u ssm-user &>/dev/null; then
+    chown ssm-user:ssm-user /scripts
+    chmod 755 /scripts
+else
+    log "Warning: ssm-user does not exist, assuming default permissions for /scripts."
+    chmod 755 /scripts
+fi
 
 log "Downloading scripts from S3..."
 aws s3 cp "s3://${s3_bucket_name}/${s3_key_create_iscsi_luns}" "/scripts/create_iscsi_luns.sh" --region "$region"
 aws s3 cp "s3://${s3_bucket_name}/${s3_key_mount_iscsi_lun}" "/scripts/mount_iscsi_lun.sh" --region "$region"
 
 log "Ensuring the downloaded scripts are executable..."
-sudo chmod +x /scripts/create_iscsi_luns.sh
-sudo chmod +x /scripts/mount_iscsi_lun.sh
+chmod +x /scripts/create_iscsi_luns.sh
+chmod +x /scripts/mount_iscsi_lun.sh
 
 log "Script completed successfully."
