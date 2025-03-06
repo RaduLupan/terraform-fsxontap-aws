@@ -128,18 +128,7 @@ resource "aws_iam_instance_profile" "main" {
   role = aws_iam_role.main.name
 }
 
-# Use this data set to replace embedded bash scripts such as user_data with scripts that sit on different source.
-data "template_file" "user_data" {
-  template = file("${path.module}/ubuntu-user-data.sh")
-
-  vars = {
-    region        = var.region
-    computer_name = var.ubuntu_name
-  }
-}
-
 # Create an S3 bucket in the same region to upload the bash scripts to.
-
 resource "random_id" "bucket_suffix" {
   byte_length = 6 # 6 bytes * 2 hex chars per byte = 12 hex chars
 }
@@ -163,15 +152,27 @@ resource "aws_s3_bucket_versioning" "versioning" {
 resource "aws_s3_object" "script1" {
   bucket = aws_s3_bucket.main.id
   key    = "create_iscsi_luns.sh"
-  source = "../scripts/create_iscsi_luns.sh" # Ensure the script exists locally.
+  source = "../scripts/create_iscsi_luns.sh"          # Ensure the script exists locally.
   etag   = filemd5("../scripts/create_iscsi_luns.sh") #forces update on file change.
 }
 
 resource "aws_s3_object" "script2" {
   bucket = aws_s3_bucket.main.id
   key    = "mount_iscsi_lun.sh"
-  source = "../scripts/mount_iscsi_lun.sh" # Ensure the script exists locally.
+  source = "../scripts/mount_iscsi_lun.sh"          # Ensure the script exists locally.
   etag   = filemd5("../scripts/mount_iscsi_lun.sh") #forces update on file change.
+}
+
+# Use this data set to replace embedded bash scripts such as user_data with scripts that sit on different source.
+data "template_file" "user_data" {
+  template = file("${path.module}/ubuntu-user-data.sh")
+
+  vars = {
+    region                   = var.region
+    s3_bucket_name           = aws_s3_bucket.main.bucket
+    s3_key_create_iscsi_luns = aws_s3_object.script1.key
+    s3_key_mount_iscsi_lun   = aws_s3_object.script2.key
+  }
 }
 
 # Client(s) EC2 instance(s) to connect to FSx ONTAP file system.
@@ -197,7 +198,7 @@ resource "aws_instance" "ubuntu" {
   iam_instance_profile = aws_iam_instance_profile.main.name
 
   tags = {
-    Name        = "${var.ubuntu_name}-${count.index+1}"
+    Name        = "${var.ubuntu_name}-${count.index + 1}"
     terraform   = true
     environment = var.environment
   }
