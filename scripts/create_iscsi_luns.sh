@@ -61,7 +61,7 @@ IGROUP2_NAME="igroup_2"
 
 OS_TYPE="linux"  # OS Type for LUN
 
-LOG_FILE="$HOME/fsx_iscsi.log"
+LOG_FILE="/var/log/fsx_iscsi.log"
 
 # Install sshpass if not installed
 if ! command -v sshpass &> /dev/null; then

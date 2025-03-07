@@ -15,12 +15,12 @@
 #   - AWS CLI configured to access SSM Parameter Store
 #   - Run with superuser privileges
 #
-# Author: Your Name
-# Date:   YYYY-MM-DD
+# Author: Radu Lupan - Assisted by OpenAI ChatGPT (gpt-4o)
+# Date:   2025-03-07
 # ==============================================================================
 
 # Log file location in the home directory
-LOG_FILE="$HOME/mount_iscsi_lun.log"
+LOG_FILE="/var/log/mount_iscsi_lun.log"
 MOUNT_POINT="/mnt/fsx_1"
 MULTIPATH_ALIAS="iscsi_lun_1"
 MULTIPATH_DEVICE="/dev/mapper/${MULTIPATH_ALIAS}"
