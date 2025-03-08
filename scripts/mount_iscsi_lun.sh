@@ -77,34 +77,67 @@ if iscsiadm -m session | grep -q "$IQN"; then
     fi
 fi
 
-# Proceed with logging in to iSCSI target
+# Step 3: Ensure node sessions are configured
+log "Updating number of sessions for $IQN..."
+sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --op update -n node.session.nr_sessions -v 8
+
+# Step 4: Proceed with logging in to iSCSI target
 log "Establishing record and logging into iSCSI target $IQN..."
-sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --login
+sudo iscsiadm --mode node --targetname "$IQN" --login #--portal "$ISCSI_IP"
 if [ $? -ne 0 ]; then
     log "Error: Failed to log in to iSCSI target $IQN."
     exit 1
 fi
 
-# Step 3: Ensure node sessions are configured
-log "Updating number of sessions for $IQN..."
-sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --op update -n node.session.nr_sessions -v 8
-
 # Step 5: Verify and refresh multipath status
 log "Verifying multipath status and refreshing devices..."
 sudo multipath -ll | sudo tee -a $LOG_FILE
-sudo multipathd -k'resize map '$MULTIPATH_ALIAS'\n'
 
-# Step 6: Check multipath configuration
+# Step 6: Assign the block device a friendly name
+log "Configuring multipath by assigning a friendly name..."
+
+# Update multipath configuration
+sudo tee /etc/multipath.conf >/dev/null <<EOF
+defaults {
+    user_friendly_names yes
+    find_multipaths yes
+    no_path_retry 6
+}
+
+multipaths {
+    multipath {
+        wwid "3600a0980$SERIAL_HEX"
+        alias "$MULTIPATH_ALIAS"
+    }
+}
+EOF
+
+log "Restarting multipathd service..."
+sudo systemctl restart multipathd
+
+# Refresh multipath devices to apply the config
+log "Refreshing multipath devices..."
+sudo multipath -r
+
+# Verify that the multipath alias is correctly recognized
+if sudo multipath -ll | grep -q "$MULTIPATH_ALIAS"; then
+    log "Multipath alias $MULTIPATH_ALIAS successfully configured."
+else
+    log "Error: Multipath alias $MULTIPATH_ALIAS not found."
+    exit 1
+fi
+
+# Step 7: Check multipath configuration
 if [ ! -e "$MULTIPATH_DEVICE" ]; then
     log "Error: Multipath device $MULTIPATH_DEVICE does not exist."
     exit 1
 fi
 
-# Step 7: Restart multipathd service
+# Step 8: Restart multipathd service
 log "Restarting multipathd service..."
 sudo systemctl restart multipathd.service
 
-# Step 8: Partition the disk if not already partitioned
+# Step 9: Partition the disk if not already partitioned
 if [ ! -e "$PARTITION" ]; then
     log "Partitioning the disk..."
     (echo o; echo n; echo p; echo 1; echo ''; echo ''; echo w) | sudo fdisk "$MULTIPATH_DEVICE"
@@ -112,7 +145,7 @@ else
     log "Partition $PARTITION already exists. Skipping partitioning."
 fi
 
-# Step 9: Create ext4 filesystem on the partition if it doesn't exist
+# Step 10: Create ext4 filesystem on the partition if it doesn't exist
 if ! sudo blkid "$PARTITION" | grep -q "ext4"; then
     log "Creating ext4 filesystem..."
     sudo mkfs.ext4 "$PARTITION"
@@ -120,11 +153,11 @@ else
     log "Filesystem already exists on $PARTITION. Skipping filesystem creation."
 fi
 
-# Step 10: Create the mount point directory if it doesn't exist
+# Step 11: Create the mount point directory if it doesn't exist
 log "Ensuring mount point directory $MOUNT_POINT exists..."
 sudo mkdir -p "$MOUNT_POINT"
 
-# Step 11: Mount the filesystem if not already mounted
+# Step 12: Mount the filesystem if not already mounted
 if ! mount | grep -q "$MOUNT_POINT"; then
     log "Mounting the filesystem at $MOUNT_POINT..."
     sudo mount -t ext4 "$PARTITION" "$MOUNT_POINT"
@@ -132,7 +165,7 @@ else
     log "Filesystem already mounted at $MOUNT_POINT. Skipping mounting."
 fi
 
-# Step 12: Change ownership of the mount point
+# Step 13: Change ownership of the mount point
 log "Changing ownership of $MOUNT_POINT to ssm-user..."
 sudo chown ssm-user:ssm-user "$MOUNT_POINT"
 
