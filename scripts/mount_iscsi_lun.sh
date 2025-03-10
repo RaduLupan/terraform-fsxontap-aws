@@ -7,6 +7,7 @@
 #              specified mount point. It checks for active sessions, partitions
 #              disks, creates filesystems, and mounts them, ensuring each step
 #              is only executed if necessary, making the script idempotent.
+#              The script now configures persistent settings to survive reboots.
 #
 # Usage: sudo ./mount_iscsi_lun.sh
 #
@@ -67,14 +68,14 @@ if [ -z "$IQN" ]; then
 fi
 log "Discovered IQN: $IQN"
 
+# Configure automatic iSCSI login
+log "Setting iSCSI target $IQN to automatic login..."
+sudo iscsiadm -m node --targetname "$IQN" --portal "$ISCSI_IP" --op update -n node.startup -v automatic
+
 # Log out any existing sessions for the target
 if iscsiadm -m session | grep -q "$IQN"; then
     log "Logging out existing iSCSI session for $IQN..."
-    sudo iscsiadm -m node --targetname "$IQN" --portal "$ISCSI_IP" --logout
-    if [ $? -ne 0 ]; then
-        log "Error: Failed to log out from existing iSCSI session."
-        # Continue; often benign if the session is already disconnected
-    fi
+    sudo iscsiadm -m node --targetname "$IQN" --portal "$ISCSI_IP" --logout || log "Warning: Failed to log out from existing iSCSI session."
 fi
 
 # Step 3: Ensure node sessions are configured
@@ -83,7 +84,7 @@ sudo iscsiadm --mode node --targetname "$IQN" --portal "$ISCSI_IP" --op update -
 
 # Step 4: Proceed with logging in to iSCSI target
 log "Establishing record and logging into iSCSI target $IQN..."
-sudo iscsiadm --mode node --targetname "$IQN" --login #--portal "$ISCSI_IP"
+sudo iscsiadm --mode node --targetname "$IQN" --login
 if [ $? -ne 0 ]; then
     log "Error: Failed to log in to iSCSI target $IQN."
     exit 1
@@ -95,8 +96,6 @@ sudo multipath -ll | sudo tee -a $LOG_FILE
 
 # Step 6: Assign the block device a friendly name
 log "Configuring multipath by assigning a friendly name..."
-
-# Update multipath configuration
 sudo tee /etc/multipath.conf >/dev/null <<EOF
 defaults {
     user_friendly_names yes
@@ -133,9 +132,9 @@ if [ ! -e "$MULTIPATH_DEVICE" ]; then
     exit 1
 fi
 
-# Step 8: Restart multipathd service
-log "Restarting multipathd service..."
-sudo systemctl restart multipathd.service
+# Step 8: Restart multipathd service at boot
+log "Ensuring multipathd service starts on boot..."
+sudo systemctl enable multipathd.service
 
 # Step 9: Partition the disk if not already partitioned
 if [ ! -e "$PARTITION" ]; then
@@ -157,15 +156,25 @@ fi
 log "Ensuring mount point directory $MOUNT_POINT exists..."
 sudo mkdir -p "$MOUNT_POINT"
 
-# Step 12: Mount the filesystem if not already mounted
+# Step 12: Add the filesystem to /etc/fstab for automatic mounting
+log "Adding the filesystem to /etc/fstab for automatic mounting..."
+UUID=$(sudo blkid -s UUID -o value "$PARTITION")
+if ! grep -q "$UUID" /etc/fstab; then
+    echo "UUID=$UUID $MOUNT_POINT ext4 defaults,_netdev 0 2" | sudo tee -a /etc/fstab
+    log "Added $PARTITION to /etc/fstab for mounting at $MOUNT_POINT"
+else
+    log "Filesystem already configured in /etc/fstab."
+fi
+
+# Step 13: Mount the filesystem if not already mounted
 if ! mount | grep -q "$MOUNT_POINT"; then
     log "Mounting the filesystem at $MOUNT_POINT..."
-    sudo mount -t ext4 "$PARTITION" "$MOUNT_POINT"
+    sudo mount "$MOUNT_POINT"
 else
     log "Filesystem already mounted at $MOUNT_POINT. Skipping mounting."
 fi
 
-# Step 13: Change ownership of the mount point
+# Step 14: Change ownership of the mount point
 log "Changing ownership of $MOUNT_POINT to ssm-user..."
 sudo chown ssm-user:ssm-user "$MOUNT_POINT"
 
