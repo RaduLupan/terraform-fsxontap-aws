@@ -20,12 +20,17 @@
 # Date:   2025-03-07
 # ==============================================================================
 
-# Log file location in the home directory
+# Log file location in the /var/log/ directory
 LOG_FILE="/var/log/mount_iscsi_lun.log"
+
+# Initialize variables
+ISCSI_INITIATOR_NAME=""
+MULTIPATH_ALIAS=""
+PARAM_SERIAL_HEX=""
 MOUNT_POINT="/mnt/fsx_1"
-MULTIPATH_ALIAS="iscsi_lun_1"
 MULTIPATH_DEVICE="/dev/mapper/${MULTIPATH_ALIAS}"
 PARTITION="${MULTIPATH_DEVICE}-part1"
+PARAM_ISCSI_IP="/fsxontap-poc/iscsi-network-ip"
 
 # Function to log messages
 log() {
@@ -39,9 +44,30 @@ touch "$LOG_FILE"
 # Start logging
 log "Script started at $(date)"
 
+# Read the iSCSI Initiator Name from the file and assign it to a variable
+ISCSI_INITIATOR_NAME=$(sudo grep -E '^InitiatorName=' /etc/iscsi/initiatorname.iscsi | awk -F= '{print $2}')
+
+# Verify if the variable is assigned correctly
+if [ -z "$ISCSI_INITIATOR_NAME" ]; then
+    log "Error: Could not retrieve iSCSI Initiator Name."
+    exit 1
+else
+    log "iSCSI Initiator Name: $ISCSI_INITIATOR_NAME"
+fi
+
+# Determine MULTIPATH_ALIAS and PARAM_SERIAL_HEX based on the initiator name. This will mount iscsi_lun_1 for client-1 and iscsi_lun_2 for client-2.
+if [[ "$ISCSI_INITIATOR_NAME" == *"client-1"* ]]; then
+    MULTIPATH_ALIAS="iscsi_lun_1"
+    PARAM_SERIAL_HEX="/fsxontap-poc/iscsi-lun1-serial-hex"
+else
+    MULTIPATH_ALIAS="iscsi_lun_2"
+    PARAM_SERIAL_HEX="/fsxontap-poc/iscsi-lun2-serial-hex"
+fi
+
+log "MULTIPATH_ALIAS set to: $MULTIPATH_ALIAS"
+log "PARAM_SERIAL_HEX set to: $PARAM_SERIAL_HEX"
+
 # Retrieve SERIAL_HEX and ISCSI_IP from SSM Parameter Store
-PARAM_SERIAL_HEX="/fsxontap-poc/iscsi-lun1-serial-hex"
-PARAM_ISCSI_IP="/fsxontap-poc/iscsi-network-ip"
 SERIAL_HEX=$(aws ssm get-parameter --name "$PARAM_SERIAL_HEX" --query "Parameter.Value" --output text)
 ISCSI_IP=$(aws ssm get-parameter --name "$PARAM_ISCSI_IP" --query "Parameter.Value" --output text)
 
