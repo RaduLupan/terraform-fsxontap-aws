@@ -28,7 +28,6 @@ ISCSI_INITIATOR_NAME=""
 MULTIPATH_ALIAS=""
 PARAM_SERIAL_HEX=""
 MOUNT_POINT="/mnt/fsx_1"
-MULTIPATH_DEVICE="/dev/mapper/${MULTIPATH_ALIAS}"
 PARTITION="${MULTIPATH_DEVICE}-part1"
 PARAM_ISCSI_IP="/fsxontap-poc/iscsi-network-ip"
 
@@ -64,8 +63,11 @@ else
     PARAM_SERIAL_HEX="/fsxontap-poc/iscsi-lun2-serial-hex"
 fi
 
+MULTIPATH_DEVICE="/dev/mapper/${MULTIPATH_ALIAS}"
+
 log "MULTIPATH_ALIAS set to: $MULTIPATH_ALIAS"
 log "PARAM_SERIAL_HEX set to: $PARAM_SERIAL_HEX"
+log "MULTIPATH_DEVICE set to: $MULTIPATH_DEVICE"
 
 # Retrieve SERIAL_HEX and ISCSI_IP from SSM Parameter Store
 SERIAL_HEX=$(aws ssm get-parameter --name "$PARAM_SERIAL_HEX" --query "Parameter.Value" --output text)
