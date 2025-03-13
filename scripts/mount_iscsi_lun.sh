@@ -27,8 +27,7 @@ LOG_FILE="/var/log/mount_iscsi_lun.log"
 ISCSI_INITIATOR_NAME=""
 MULTIPATH_ALIAS=""
 PARAM_SERIAL_HEX=""
-MOUNT_POINT="/mnt/fsx_1"
-PARTITION="${MULTIPATH_DEVICE}-part1"
+MOUNT_POINT="/mnt/fsx_iscsi"
 PARAM_ISCSI_IP="/fsxontap-poc/iscsi-network-ip"
 
 # Function to log messages
@@ -64,6 +63,7 @@ else
 fi
 
 MULTIPATH_DEVICE="/dev/mapper/${MULTIPATH_ALIAS}"
+PARTITION="${MULTIPATH_DEVICE}-part1"
 
 log "MULTIPATH_ALIAS set to: $MULTIPATH_ALIAS"
 log "PARAM_SERIAL_HEX set to: $PARAM_SERIAL_HEX"
