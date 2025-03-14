@@ -172,6 +172,8 @@ data "template_file" "user_data" {
     s3_bucket_name           = aws_s3_bucket.main.bucket
     s3_key_create_iscsi_luns = aws_s3_object.script1.key
     s3_key_mount_iscsi_lun   = aws_s3_object.script2.key
+    nfs_server               = var.nfs_server
+    nfs_volume_path          = var.nfs_volume_path
   }
 }
 

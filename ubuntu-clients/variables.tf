@@ -51,3 +51,15 @@ variable "ubuntu_name" {
   type        = string
   default     = "Ubuntu-Client"
 }
+
+variable "nfs_server" {
+  description = "The NFS server IP address or hostname"
+  type        = string
+  default     = null
+}
+
+variable "nfs_volume_path" {
+  description = "The NFS volume path"
+  type        = string
+  default     = null
+}
