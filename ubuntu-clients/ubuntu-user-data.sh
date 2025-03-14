@@ -3,10 +3,11 @@
 # Script Name: user_data_script.sh
 #
 # Description: This script is used in AWS EC2 user-data to automate the setup and
-#              configuration of a Linux instance for iSCSI connectivity and script
-#              deployment. The script performs the following operations:
-#                - Installs AWS CLI, open-iscsi, and multipath tools.
+#              configuration of a Linux instance for iSCSI and NFS connectivity
+#              and script deployment. The script performs the following operations:
+#                - Installs AWS CLI, open-iscsi, multipath tools, and NFS utilities.
 #                - Configures iSCSI settings and initiator names.
+#                - Mounts NFS volumes for shared access.
 #                - Downloads specified scripts from an S3 bucket to /scripts.
 #                - Logs actions to a file accessible by both ubuntu and ssm-user.
 #
@@ -19,6 +20,8 @@
 #   - s3_bucket_name: The name of the S3 bucket containing scripts.
 #   - s3_key_create_iscsi_luns: S3 key for the create_iscsi_luns script.
 #   - s3_key_mount_iscsi_lun: S3 key for the mount_iscsi_lun script.
+#   - nfs_server: The domain name of the NFS server.
+#   - nfs_volume_path: The export path of the NFS volume.
 #
 # Log File: /var/log/user_data_script.log
 #
@@ -55,6 +58,8 @@ region="${region}"
 s3_bucket_name="${s3_bucket_name}"
 s3_key_create_iscsi_luns="${s3_key_create_iscsi_luns}"
 s3_key_mount_iscsi_lun="${s3_key_mount_iscsi_lun}"
+nfs_server="${nfs_server}"
+nfs_volume_path="${nfs_volume_path}"
 
 # Log the injected variables for verification
 log "Injected variables via Terraform:"
@@ -62,16 +67,14 @@ log "Region: $region"
 log "S3 Bucket Name: $s3_bucket_name"
 log "S3 Key for Create iSCSI LUNs: $s3_key_create_iscsi_luns"
 log "S3 Key for Mount iSCSI LUN: $s3_key_mount_iscsi_lun"
+log "NFS Server: $nfs_server"
+log "NFS Volume Path: $nfs_volume_path"
 
 # Validate that essential variables are set
-if [ -z "$region" ] || [ -z "$s3_bucket_name" ] || [ -z "$s3_key_create_iscsi_luns" ] || [ -z "$s3_key_mount_iscsi_lun" ]; then
+if [ -z "$region" ] || [ -z "$s3_bucket_name" ] || [ -z "$s3_key_create_iscsi_luns" ] || [ -z "$s3_key_mount_iscsi_lun" ] || [ -z "$nfs_server" ] || [ -z "$nfs_volume_path" ]; then
     log "Error: One or more injected variables are empty."
     exit 1
 fi
-
-# Variables
-AWS_CLI_ZIP_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
-NODE_SESSION_TIMEOUT=5
 
 # Define the SSM parameter path prefix
 SSM_PARAMETER_PATH_PREFIX="/fsxontap-poc/iscsi-initiator-name"
@@ -79,14 +82,16 @@ SSM_PARAMETER_PATH_PREFIX="/fsxontap-poc/iscsi-initiator-name"
 log "Updating package lists..."
 apt update -y
 
+log "Installing required packages..."
+apt install -y unzip nfs-common open-iscsi multipath-tools multipath-tools-boot
+
+AWS_CLI_ZIP_URL="https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip"
 log "Installing AWS CLI v2..."
-apt install unzip -y
 curl "$AWS_CLI_ZIP_URL" -o "awscliv2.zip"
 unzip awscliv2.zip
 ./aws/install
 
-log "Installing open-iscsi package..."
-apt install open-iscsi -y
+NODE_SESSION_TIMEOUT=5
 
 log "Setting replacement timeout in /etc/iscsi/iscsid.conf..."
 sed -i "s/node.session.timeo.replacement_timeout = .*/node.session.timeo.replacement_timeout = $NODE_SESSION_TIMEOUT/" /etc/iscsi/iscsid.conf
@@ -96,9 +101,6 @@ cat /etc/iscsi/iscsid.conf | grep node.session.timeo.replacement_timeout
 log "Enabling and starting iSCSI service..."
 systemctl enable --now iscsid
 systemctl is-active iscsid
-
-log "Installing multipath tools..."
-apt install multipath-tools multipath-tools-boot -y
 
 log "Creating and configuring /etc/multipath.conf..."
 tee /etc/multipath.conf > /dev/null <<EOF
@@ -157,5 +159,28 @@ aws s3 cp "s3://${s3_bucket_name}/${s3_key_mount_iscsi_lun}" "/scripts/mount_isc
 log "Ensuring the downloaded scripts are executable..."
 chmod +x /scripts/create_iscsi_luns.sh
 chmod +x /scripts/mount_iscsi_lun.sh
+
+# NFS server and mount configuration
+MOUNT_POINT="/mnt/fsx_nfs"
+log "Creating NFS mount point directory $MOUNT_POINT..."
+mkdir -p $MOUNT_POINT
+
+# Only proceed if both nfs_server and nfs_volume_path are provided
+if [ -n "$nfs_server" ] && [ -n "$nfs_volume_path" ]; then
+    # Add the NFS mount to /etc/fstab for automatic mounting
+    log "Adding NFS mount to /etc/fstab..."
+    if ! grep -q "$nfs_server:$nfs_volume_path" /etc/fstab; then
+        echo "$nfs_server:$nfs_volume_path $MOUNT_POINT nfs defaults 0 0" | tee -a /etc/fstab
+        log "NFS volume added to /etc/fstab."
+    else
+        log "NFS volume already configured in /etc/fstab."
+    fi
+
+    # Mount the NFS volume immediately
+    log "Mounting the NFS volume..."
+    mount $MOUNT_POINT
+else
+    log "NFS server or volume path not provided; skipping NFS mount."
+fi
 
 log "Script completed successfully."
