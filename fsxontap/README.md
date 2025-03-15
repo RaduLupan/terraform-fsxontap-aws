@@ -1,4 +1,4 @@
-# fsxontap Folder
+# FSx ONTAP Deployment with Terraform
 
 This folder contains Terraform configurations for deploying an Amazon FSx for NetApp ONTAP file system in AWS. The setup includes the creation of necessary networking components, an FSx for ONTAP file system, and related resources.
 
