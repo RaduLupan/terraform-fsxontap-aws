@@ -70,3 +70,10 @@ terraform apply
 ## Further Reading
 
 - [Amazon FSx Documentation](https://docs.aws.amazon.com/fsx/latest/ONTAPGuide/what-is-fsx-ontap.html)
+
+## TODO
+
+- [ ] Add additional security group rules for specific service access.
+- [ ] Review and update IAM policies for least privilege access.
+- [ ] Add monitoring and alerting configurations.
+- [ ] Capture the serial-hex for both LUNs and save it to SSM Parameter Store.
